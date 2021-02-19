@@ -1,0 +1,58 @@
+<style>
+    #stream_db td{
+        cursor: pointer;
+    }
+    #stream_db .grid-container{
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    #stream_db tbody{
+        width: 100vw;
+    }
+
+    #stream_db td{
+        color:greenyellow;
+        font-size: 13px;
+    }
+</style>
+<fieldset id="stream_db">
+    <legend>Stream Endpoints</legend>
+
+    <div class="grid">
+        <div class="grid-container">
+            <table>
+                <thead>
+                    <tr class="header">
+                        <th>
+                            Device
+                        </th>
+                        <!-- <th>
+                            Location
+                        </th> -->
+                        <th>
+                            Battery
+                        </th>
+                        <!-- <th>
+                            Vision
+                        </th> -->
+                        <th>
+                            DateTime
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in stream_db %}
+                        <tr{% if loop.index == 1 %} class="active"{% endif %}>
+                            <td>{{item.name}}</td>W
+                            <!-- <td>{{item.coordinate}}</td> -->
+                            <td>{{item.battery}}%</td>
+                            <!-- <td>{{item.vision}}</td> -->
+                            <td>{{item.timestamp}}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</fieldset>

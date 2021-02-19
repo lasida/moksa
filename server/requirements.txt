@@ -1,0 +1,9 @@
+jsonify==0.5
+flask==1.1.2
+requests==2.25.1
+schedule==0.6.0
+pymongo==3.11.2
+timeago==1.0.15
+flask-socketio==5.0.1
+pytz==2020.4
+opencv-python==4.4.0.44

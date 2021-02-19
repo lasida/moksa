@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Monitoring Kontainer Sampah</title>
+        <link rel="shortcut icon" type="image/jpg" href="{{ url_for('static', filename='img/favicon.ico') }}"/>
+
+        <!-- Enquene Style -->
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/screen.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+        <!-- Enquene Script -->
+        <script src="{{ url_for('static', filename='js/jquery.min.js') }}" ></script>
+        <script src="{{ url_for('static', filename='js/socket.io.js') }}" ></script>
+        <script src="{{ url_for('static', filename='js/leaflet.js') }}" ></script>
+    </head>
+
+    <body>
+        <div class="container">
+            <header>
+                <div class="col col-7">
+                    <h1>Monitoring Dashboard</h1>
+                </div>
+                <div class="col col-3">
+                    <p>Async mode is: <b>{{ async_mode }}</b></p>
+                    <p>Average Latency: <b><span id="ping-pong"></span>ms</b></p>
+                </div>
+            </header>
+
+            <div class="row">
+                <div class="col col-3">
+                    {% include "services/devices.html" %}
+                    {% include "services/notification.html" %}
+                </div>
+
+                <div class="col col-7">
+                    {% include "services/db.html" %}
+                    <!-- {% include "services/maps.html" %} -->
+                </div>
+        
+                <div class="col col-3">
+                    <!-- Call Estimation Template -->
+                    {% include "services/estimation.html" %}
+
+                </div>
+
+       
+            </div>
+        </div>
+
+        <script type="text/javascript" charset="utf-8">
+            function capitalizeFirstLetter(string) {
+                return string.charAt(0).toUpperCase() + string.slice(1);
+            }
+
+            $(document).on( "click", "#stream_db tr", function() {
+                console.log( $(this).attr('raw') );
+                $('#device-raw').attr( 'src', $(this).attr('raw') );
+                $('#device-estimation').attr( 'src', $(this).attr('estimation') );
+            });
+
+            $(document).ready(function() {
+                var socket = io();
+
+                // Socket Connect
+                socket.on('connect', function() {
+                    // socket.emit('my_event', {data: 'I\'m connected!'});
+                    console.log("Socket Connected !!!");
+                });
+
+                // Interval function that tests message latency by sending a "ping"
+                // message. The server then responds with a "pong" message and the
+                // round trip time is measured.
+                var ping_pong_times = [];
+                var start_time;
+                window.setInterval(function() {
+                    start_time = (new Date).getTime();
+                    socket.emit('the_ping'); // Client Request Latency
+
+                    socket.emit('stream_db');
+                    // socket.emit('evoc_latest_device');
+                    // socket.emit('evoc_devices');
+                }, 1000);
+
+                // Handler for the "pong" message. When the pong is received, the
+                // time from the ping is stored, and the average of the last 30
+                // samples is average and displayed.
+                socket.on('the_pong', function() {
+                    var latency = (new Date).getTime() - start_time;
+                    ping_pong_times.push(latency);
+                    ping_pong_times = ping_pong_times.slice(-30); // keep last 30 samples
+                    var sum = 0;
+                    for (var i = 0; i < ping_pong_times.length; i++)
+                        sum += ping_pong_times[i];
+                    $('#ping-pong').text(Math.round(10 * sum / ping_pong_times.length) / 10);
+                });
+
+                // Displaying Device Status
+                socket.on('evoc_devices', function( msg, cb ){
+                    $( '#' + msg.chip ).addClass('on');
+                    $( '#' + msg.chip + ' .runtime' ).text( msg.runtime + 's');
+                    $( '#' + msg.chip + ' .batt' ).text( msg.batt + '%' );
+                    $( '#' + msg.chip + ' .status' ).text( capitalizeFirstLetter( msg.status ) );
+                });
+
+                // Displaying From Database
+                var lastestFlag = true;
+                socket.on('stream_db', function( msg, cb ){
+                    // console.log(msg);
+                    let latestRaw = ( msg[0].vision_raw ) ? msg[0].vision_raw : '/static/img/notfound.jpg';
+                    let latestEstimation = ( msg[0].estimation_vision ) ? msg[0].estimation_vision : '/static/img/notfound.jpg';
+                    let latestCapacity = msg[0].estimation_value ? msg[0].estimation_value : 0;
+                    let latestBattery = msg[0].battery ? msg[0].battery : 0;
+                    let latestCoordinate = msg[0].coordinate ?  msg[0].coordinate : '-';
+                    let latestMode = msg[0].mode ? msg[0].mode : '-';
+                    let latestTime = msg[0].timeago ? msg[0].timeago : '-';
+   
+                    if( lastestFlag ){
+                        $('#device-raw').attr("src", latestRaw);
+                        $('#device-estimation').attr("src", latestEstimation);
+
+                        $('#device-capacity').text( latestCapacity );
+                        $('#device-battery').text( latestBattery );
+                        $('#device-coordinate').text( latestCoordinate ); 
+                        $('#device-mode').text( latestMode );
+                        $('#device-time').text( latestTime );
+                        lastestFlag = false;
+                    }
+                
+
+                    $('#stream_db tbody tr').remove();
+                    msg.forEach( function( item, index) {
+                        var rawImageUrl = msg[index].vision_raw ? msg[index].vision_raw : '/static/img/notfound.jpg';
+                        var estimationImageUrl = msg[index].estimation_vision ? msg[index].estimation_vision : '/static/img/notfound.jpg';
+                        var deviceName = item.name;
+                        var deviceBattery = item.battery;
+                        var deviceTimeStamp = item.timestamp;
+                        // var deviceCoordinate = item.coordinate;
+                        // var deviceVision = item.vision;
+                        $('#stream_db tbody').append('<tr raw="'+ rawImageUrl +'" estimation="'+ estimationImageUrl +'"><td>' + deviceName +'</td><td>'+ deviceBattery +'%</td><td>'+ deviceTimeStamp +'</td></tr>');
+                    });
+                });
+
+                /// Displaying Image Estimation
+                //  socket.on('evoc_latest_device', function( msg, cb ){
+                //     // console.log(msg);
+                //     $('#device-raw').attr("src", ( msg.vision_raw ) ? msg.vision_raw : '/static/img/notfound.jpg');
+                //     $('#device-estimation').attr("src", ( msg.estimation_vision ) ? msg.estimation_vision : '/static/img/notfound.jpg');
+
+                //     $('#device-capacity').text( msg.estimation_value ? msg.estimation_value : 0 );
+                //     $('#device-battery').text( msg.battery ? msg.battery : 0 );
+                //     $('#device-coordinate').text( msg.coordinate ?  msg.coordinate : '-' ); 
+                //     $('#device-mode').text( msg.mode ? msg.mode : '-' );
+                //     $('#device-time').text( msg.timeago ? msg.timeago : '-' );
+                // });
+
+
+                // Socket Counter
+                // socket.on('ecov_counter', function(msg, cb) {
+                //     // $('h1').text(msg);
+                //     // if (cb)
+                //     //     cb();
+                // });
+
+                // Handlers for the different forms in the page.
+                // These accept data from the user and send it to the server in a
+                // variety of ways
+                // $('form#emit').submit(function(event) {
+                //     socket.emit('my_event', {data: $('#emit_data').val()});
+                //     return false;
+                // });
+                // $('form#broadcast').submit(function(event) {
+                //     socket.emit('my_broadcast_event', {data: $('#broadcast_data').val()});
+                //     return false;
+                // });
+                // $('form#join').submit(function(event) {
+                //     socket.emit('join', {room: $('#join_room').val()});
+                //     return false;
+                // });
+                // $('form#leave').submit(function(event) {
+                //     socket.emit('leave', {room: $('#leave_room').val()});
+                //     return false;
+                // });
+                // $('form#send_room').submit(function(event) {
+                //     socket.emit('my_room_event', {room: $('#room_name').val(), data: $('#room_data').val()});
+                //     return false;
+                // });
+                // $('form#close').submit(function(event) {
+                //     socket.emit('close_room', {room: $('#close_room').val()});
+                //     return false;
+                // });
+                // $('form#disconnect').submit(function(event) {
+                //     socket.emit('disconnect_request');
+                //     return false;
+                // });
+            });
+        </script>
+
+	</body>
+</html>
