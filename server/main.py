@@ -10,8 +10,8 @@ import os
 
 from helpers import *
 from database import DatabaseWrapper
-# from estimation import EstimationVolume
-# from notification import Notification
+from estimation import EstimationCapacity
+from notification import Notification
 
 
 # Set this variable to "threading", "eventlet" or "gevent" to test the
@@ -21,7 +21,7 @@ async_mode = None
 
 # ---------------------------------------------- Define Constants
 # SERVERNAME = 'http://127.0.0.1:3000/' # For Local Host
-SERVERNAME = 'http://wastecontainer.ap-1.evennode.com/'
+SERVERNAME = 'http://escoca.ap-1.evennode.com/'
 
 # Registerd Device ( chipID : Name )
 registered_device = {

@@ -1,6 +1,6 @@
 import cv2
 
-class EstimationVolume:
+class EstimationCapacity:
   raw = ""
   colorspace = ""
   img = ""
