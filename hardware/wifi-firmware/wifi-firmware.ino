@@ -306,7 +306,7 @@ void loop(){
     if( getCameraPicture() ){
       setupSleep(timeToSleep);
     }else{
-      getCameraPicture();
+      getCameraPicture(); // ReGet Picture
     }
   }
 
@@ -495,7 +495,12 @@ void setupCamera(){
   s->set_vflip(s, 1); // 0 = disable , 1 = enable
 }
 
+int errCount = 0;
 bool getCameraPicture(){
+  if( errCount > 3 ){
+    return true;
+    errCount = 0;
+  }
   Serial.print("CAM :: Take Photo...");
   
   // Flash ON
@@ -559,12 +564,12 @@ bool getCameraPicture(){
   Serial.print("ESP32 :: Sending Payload...");
   bool rstatus = HTTP_POST_WIFI( "http://escoca.ap-1.evennode.com/v1/container/data", jsonVision );
   if( rstatus ){
-    Serial.print("....OK");
-    delay(1000);
+    Serial.println("....OK");
     return true;
   }else{
-    Serial.print("....Failed");
+    Serial.println("....Failed");
     return false;
+    errCount++;
   }
 
   //Split Base64Image
@@ -606,10 +611,6 @@ bool HTTP_POST_WIFI( char* ENDPOINTS, char* JsonDoc)
       Serial.print("Error on sending POST: ");
       Serial.println(httpCode);
       return false;
-
-      WiFi.onEvent(WiFiStationConnected, SYSTEM_EVENT_STA_CONNECTED);
-      WiFi.onEvent(WiFiGotIP, SYSTEM_EVENT_STA_GOT_IP);
-      WiFi.onEvent(WiFiStationDisconnected, SYSTEM_EVENT_STA_DISCONNECTED); 
     }
 
     http.end();

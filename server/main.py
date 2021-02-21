@@ -10,8 +10,8 @@ import os
 
 from helpers import *
 from database import DatabaseWrapper
-from estimation import EstimationCapacity
-from notification import Notification
+# from estimation import EstimationCapacity
+# from notification import Notification
 
 
 # Set this variable to "threading", "eventlet" or "gevent" to test the
@@ -26,7 +26,8 @@ SERVERNAME = 'http://escoca.ap-1.evennode.com/'
 # Registerd Device ( chipID : Name )
 registered_device = {
     '5255521432'    : "POSTMAN",
-    '951950972'     : "DEVICE-001"
+    '951950972'     : "DEV-01",
+    '805658940'     : "DEV-02"
 }
 
 # Registered User ( WA : Name )
