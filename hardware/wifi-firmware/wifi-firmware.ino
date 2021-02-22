@@ -33,13 +33,8 @@
 #include "Helper.h"
 
 //Connection
-//#include "BluetoothSerial.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
-
-//GPS
-#include "types.h"
-#include "TinyGPS++.h"
 
 //Camera Type
 #define CAMERA_MODEL_AI_THINKER
@@ -63,10 +58,6 @@
 const char* ssid = "artemis";
 const char* password = "lasida123";
 
-//GPS GPIO
-#define RXD2 14
-#define TXD2 15
-
 //LED & VIBRATION GPIO
 #define GPIO_LED 12
 #define BUTTON_PIN_BITMASK 0x4
@@ -74,10 +65,7 @@ const char* password = "lasida123";
 #define GPIO_FLASH 4
 
 // Object Intialize
-//BluetoothSerial SerialBT;
 WiFiClient client;
-TinyGPSPlus gps;
-HardwareSerial SerialGPS(1);
 HTTPClient http;
 
 // Set Flag Internet Connected
@@ -88,15 +76,8 @@ bool status_gps = false;
 bool device_status_online = false;
 bool device_status_capture = false;
 
-// GPS and Mode Temp
-double device_lat;
-double device_long;
-double device_alt;
-String device_mode;
-int device_battery;
-
 //Post Temp
-char jsonVision[28000];
+char jsonVision[30000];
 char jsonStatus[100];
 
 //DateTime
@@ -160,7 +141,6 @@ void setup()
   //The chip ID is essentially its MAC address(length: 6 bytes).
   chipid = ESP.getEfuseMac();
   Serial.begin(115200);
-  Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
   pinMode(GPIO_VIBRATION, INPUT_PULLDOWN); 
 
   // ----- LED BLINK 10 Times ----- //
@@ -186,19 +166,11 @@ void setup()
 
   // --> Setup Camera
   setupCamera();
-  
-  // --> Setup GPS
-  delay(500);
-  setupGPS();
 
   //Increment boot number and print it every reboot
   ++bootCount;
   Serial.println("Boot Number: " + String(bootCount));
   Serial.println("Uptime : " + String(uptime_seconds));
-
-  // --> Setup Battery
-  delay(500);
-  getBattery();
 
   //init and get the time -> Need Connection
   delay(1000);
@@ -214,7 +186,6 @@ void setup()
   //Wake Up using Trigger | Vibration
   //print_GPIO_wake_up();
   //esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK,ESP_EXT1_WAKEUP_ANY_HIGH);
- 
 }
 
 
@@ -233,23 +204,6 @@ void loop(){
   Serial.println("Runtime : " + String(local_time_seconds) );
   Serial.println("Uptime : " + String(uptime_seconds) );
   
-  //--------------------------------- GPS Log ---------------------------------//
-  
-  // Online for 3 minutes and status gps false;
-  if (millis() > 180000 && status_gps == false ){
-    Serial.println("3 Minutes Passed and GPS Failure...");
-    getCoordinat();
-  }
-  
-  //while (Serial2.available() >0) {
-  //   gps.encode(Serial2.read());
-  //}
-  //if (millis() > 5000 && gps.charsProcessed() < 10)
-  //{
-  //  Serial.println(F("tidak ada module GPS, cek wiringmu!"));
-  //  while(true);
-  //}
-
   //--------------------------------- Vibration Reading ---------------------------------//
 
   // Vibration True and Flag False
@@ -305,8 +259,6 @@ void loop(){
     
     if( getCameraPicture() ){
       setupSleep(timeToSleep);
-    }else{
-      getCameraPicture(); // ReGet Picture
     }
   }
 
@@ -355,47 +307,6 @@ void setupSleep( int timeSleep ){
   indicator_fast_blink( 3 );
   Serial.flush(); 
   esp_deep_sleep_start();
-}
-
-//--------------------------------- Battery ---------------------------------//
-void getBattery()
-{
-  int batt_raw;
-  adc2_config_channel_atten( ADC2_CHANNEL_4, ADC_ATTEN_DB_11  );
-  esp_err_t r = adc2_get_raw( ADC2_CHANNEL_4, ADC_WIDTH_12Bit, &batt_raw);
-
-  if ( r == ESP_OK ) {
-    device_battery = calcBatt( batt_raw );
-    Serial.print( "Battery Capacity :: " ); Serial.print( device_battery ); Serial.println( "%" );
-  } else if ( r == ESP_ERR_TIMEOUT ) {
-    Serial.println("ADC2 used by Wi-Fi.\n");
-  }
-}
-
-//--------------------------------- GPS ---------------------------------//
-void setupGPS(){
-  Serial.println( "GPS :: Checking...." );
-  getCoordinat();
-}
-
-void getCoordinat(){
-  while (Serial2.available() > 0 ) {
-     gps.encode(Serial2.read());
-  }
-
-  if( gps.location.lat() && gps.location.lng() ){
-    status_gps = true;
-    device_lat = gps.location.lat();
-    device_long = gps.location.lng();
-    device_alt = gps.altitude.meters();
-    Serial.print("GPS :: Lat = ");  Serial.println( device_lat, 6);
-    Serial.print("GPS :: Long = "); Serial.println( device_long, 6);
-    Serial.print("GPS :: Alt = ");  Serial.println( device_alt );
-    Serial.println( "GPS :: OK !!!" );
-  }else{
-    status_gps = false;
-    Serial.println( "GPS :: Low Signal !!!" );
-  }
 }
 
 //--------------------------------- NetworkTime ---------------------------------//
@@ -492,20 +403,19 @@ void setupCamera(){
   }
 
   sensor_t * s = esp_camera_sensor_get();
-  s->set_vflip(s, 1); // 0 = disable , 1 = enable
+  s->set_vflip(s, 0); // 0 = disable , 1 = enable
 }
 
 int errCount = 0;
 bool getCameraPicture(){
   if( errCount > 3 ){
-    return true;
-    errCount = 0;
+    ESP.restart();
   }
   Serial.print("CAM :: Take Photo...");
   
   // Flash ON
   digitalWrite(GPIO_FLASH, HIGH);
-  delay(200);
+  delay(500);
   digitalWrite(GPIO_FLASH, LOW);
   delay(500);
   
@@ -529,19 +439,20 @@ bool getCameraPicture(){
   }
   esp_camera_fb_return(fb);
   Serial.println("... OK");
-//  Serial.println(base64Image);
+  // Serial.println(base64Image);
 
   // Populate JSON
   Serial.print("ESP32 :: Generating Payload...");
   using SpiRamJsonDocument = BasicJsonDocument<SpiRamAllocator>;
   SpiRamJsonDocument doc(1048576);
   doc["chip"] = String(chipid);
-  doc["lat"]  = device_lat;
-  doc["long"] = device_long;
-  doc["batt"] = int(device_battery);
+  doc["lat"]  = "-6.52151";
+  doc["long"] = "105.52151";
+  doc["batt"] = "100";
   doc["mode"] = "charge";
   doc["vision"] = base64Image;
   Serial.print("Length Image : "); Serial.println( base64Image.length());
+  
   jsonVision[base64Image.length() + 500];
   serializeJson(doc, jsonVision);  
   Serial.println("... OK");
@@ -594,7 +505,7 @@ bool HTTP_POST_WIFI( char* ENDPOINTS, char* JsonDoc)
     int httpCode = http.POST(JsonDoc);;
     memset(jsonVision, 0, sizeof(jsonVision));
     
-    if( httpCode > 0 ){
+    if( httpCode == 0 || httpCode > 0 ){
       String response = http.getString(); 
       Serial.print("HTTP CODE : ");
       Serial.println(httpCode); 

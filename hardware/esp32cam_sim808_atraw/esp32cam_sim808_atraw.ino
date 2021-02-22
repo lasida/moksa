@@ -26,7 +26,8 @@ void setup() {
   SerialBT.begin("ECOV-DEV"); //Bluetooth device name
   Serial.begin(9600);
   Serial.println("AT+BTPOWER=0");
-
+  delay(1000);
+  
   checkSignal();
   connectGPRS();
   postData();
