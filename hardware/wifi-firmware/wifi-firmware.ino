@@ -416,17 +416,19 @@ bool getCameraPicture(){
   // Flash ON
   digitalWrite(GPIO_FLASH, HIGH);
   delay(500);
-  digitalWrite(GPIO_FLASH, LOW);
-  delay(500);
-  
+
   camera_fb_t * fb = NULL;
   fb = esp_camera_fb_get();  
   if(!fb) {
+    digitalWrite(GPIO_FLASH, LOW);
     Serial.print("... Camera capture failed");
     delay(1000);
     ESP.restart();
   }
   Serial.println("... OK");
+
+  digitalWrite(GPIO_FLASH, LOW);
+  delay(500);
 
   // Encode Base64String
   Serial.print("CAM :: Encode to Base64String...");
@@ -498,7 +500,7 @@ bool HTTP_POST_WIFI( char* ENDPOINTS, char* JsonDoc)
   if(WiFi.status()== WL_CONNECTED){
     unsigned long start = micros();
    
-    http.setTimeout(40000);
+    http.setTimeout(100000);
     http.begin( ENDPOINTS );
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Content-Length", String(sizeof(jsonVision)) );

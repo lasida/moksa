@@ -1,4 +1,5 @@
 from pymongo import MongoClient 
+# from bson.json_util import dumps
 import json
 import timeago, datetime
 import pytz
@@ -9,7 +10,7 @@ MONGO_USER = "62cd3b9252628421205ea77d401f197c"
 MONGO_PASS = "lasida123"
 
 
-class DatabaseWrapper:
+class Repository:
   def __init__(self):
     connection = MongoClient(MONGO_HOST, 27018, replicaset='eu-11')
     self.db = connection[MONGO_DB]

@@ -60,87 +60,131 @@
                 $('#device-estimation').attr( 'src', $(this).attr('estimation') );
             });
 
+            function escoca_get_lastest_data( msg ){
+                let latestRaw = ( msg[0].vision_raw ) ? msg[0].vision_raw : '/static/img/notfound.jpg';
+                let latestEstimation = ( msg[0].estimation_vision ) ? msg[0].estimation_vision : '/static/img/notfound.jpg';
+                let latestCapacity = msg[0].estimation_value ? msg[0].estimation_value : 0;
+                let latestBattery = msg[0].battery ? msg[0].battery : 0;
+                let latestCoordinate = msg[0].coordinate ?  msg[0].coordinate : '-';
+                let latestMode = msg[0].mode ? msg[0].mode : '-';
+                let latestTime = msg[0].timeago ? msg[0].timeago : '-';
+
+          
+                // if( lastestFlag ){
+                    $('#device-raw').attr("src", latestRaw);
+                    $('#device-estimation').attr("src", latestEstimation);
+
+                    $('#device-capacity').text( latestCapacity );
+                    $('#device-battery').text( latestBattery );
+                    $('#device-coordinate').text( latestCoordinate ); 
+                    $('#device-mode').text( latestMode );
+                    $('#device-time').text( latestTime );
+                    // lastestFlag = false;
+                // }
+            }
+
             $(document).ready(function() {
-                var socket = io();
+                // var socket = io();
 
-                // Socket Connect
-                socket.on('connect', function() {
-                    // socket.emit('my_event', {data: 'I\'m connected!'});
-                    console.log("Socket Connected !!!");
-                });
+                SERVERNAME = 'http://127.0.0.1:3000'
+                // SERVERNAME = 'http://escoca.ap-1.evennode.com'
 
-                // Interval function that tests message latency by sending a "ping"
-                // message. The server then responds with a "pong" message and the
-                // round trip time is measured.
-                var ping_pong_times = [];
-                var start_time;
+                // // Socket Connect
+                // socket.on('connect', function() {
+                //     // socket.emit('my_event', {data: 'I\'m connected!'});
+                //     console.log("Socket Connected !!!");
+                // });
+
+                // // Interval function that tests message latency by sending a "ping"
+                // // message. The server then responds with a "pong" message and the
+                // // round trip time is measured.
+                // var ping_pong_times = [];
+                // var start_time;
                 window.setInterval(function() {
-                    start_time = (new Date).getTime();
-                    socket.emit('the_ping'); // Client Request Latency
+                    const url = SERVERNAME + '/v1/container/data';
 
-                    socket.emit('stream_db');
-                    // socket.emit('evoc_latest_device');
-                    // socket.emit('evoc_devices');
-                }, 1000);
+                    fetch(url)
+                    .then((resp) => resp.json())
+                    .then(function(data) {
+                        $('#stream_db tbody tr').remove();
+                        data.forEach( function( item, index) {
+                            var rawImageUrl = data[index].vision_raw ? data[index].vision_raw : '/static/img/notfound.jpg';
+                            var estimationImageUrl = data[index].estimation_vision ? data[index].estimation_vision : '/static/img/notfound.jpg';
+                            var deviceName = item.name;
+                            var deviceBattery = item.battery;
+                            var deviceTimeStamp = item.timestamp;
+                            // var deviceCoordinate = item.coordinate;
+                            // var deviceVision = item.vision;
+                            $('#stream_db tbody').append('<tr raw="'+ rawImageUrl +'" estimation="'+ estimationImageUrl +'"><td>' + deviceName +'</td><td>'+ deviceBattery +'%</td><td>'+ deviceTimeStamp +'</td></tr>');
+                        });
 
-                // Handler for the "pong" message. When the pong is received, the
-                // time from the ping is stored, and the average of the last 30
-                // samples is average and displayed.
-                socket.on('the_pong', function() {
-                    var latency = (new Date).getTime() - start_time;
-                    ping_pong_times.push(latency);
-                    ping_pong_times = ping_pong_times.slice(-30); // keep last 30 samples
-                    var sum = 0;
-                    for (var i = 0; i < ping_pong_times.length; i++)
-                        sum += ping_pong_times[i];
-                    $('#ping-pong').text(Math.round(10 * sum / ping_pong_times.length) / 10);
-                });
+                        escoca_get_lastest_data( data );
+                    })
+                    .catch(function(error) {
+                        console.log(error);
+                    });
+                }, 2000);
 
-                // Displaying Device Status
-                socket.on('evoc_devices', function( msg, cb ){
-                    $( '#' + msg.chip ).addClass('on');
-                    $( '#' + msg.chip + ' .runtime' ).text( msg.runtime + 's');
-                    $( '#' + msg.chip + ' .batt' ).text( msg.batt + '%' );
-                    $( '#' + msg.chip + ' .status' ).text( capitalizeFirstLetter( msg.status ) );
-                });
-
-                // Displaying From Database
-                var lastestFlag = true;
-                socket.on('stream_db', function( msg, cb ){
-                    // console.log(msg);
-                    let latestRaw = ( msg[0].vision_raw ) ? msg[0].vision_raw : '/static/img/notfound.jpg';
-                    let latestEstimation = ( msg[0].estimation_vision ) ? msg[0].estimation_vision : '/static/img/notfound.jpg';
-                    let latestCapacity = msg[0].estimation_value ? msg[0].estimation_value : 0;
-                    let latestBattery = msg[0].battery ? msg[0].battery : 0;
-                    let latestCoordinate = msg[0].coordinate ?  msg[0].coordinate : '-';
-                    let latestMode = msg[0].mode ? msg[0].mode : '-';
-                    let latestTime = msg[0].timeago ? msg[0].timeago : '-';
-   
-                    if( lastestFlag ){
-                        $('#device-raw').attr("src", latestRaw);
-                        $('#device-estimation').attr("src", latestEstimation);
-
-                        $('#device-capacity').text( latestCapacity );
-                        $('#device-battery').text( latestBattery );
-                        $('#device-coordinate').text( latestCoordinate ); 
-                        $('#device-mode').text( latestMode );
-                        $('#device-time').text( latestTime );
-                        lastestFlag = false;
-                    }
                 
 
-                    $('#stream_db tbody tr').remove();
-                    msg.forEach( function( item, index) {
-                        var rawImageUrl = msg[index].vision_raw ? msg[index].vision_raw : '/static/img/notfound.jpg';
-                        var estimationImageUrl = msg[index].estimation_vision ? msg[index].estimation_vision : '/static/img/notfound.jpg';
-                        var deviceName = item.name;
-                        var deviceBattery = item.battery;
-                        var deviceTimeStamp = item.timestamp;
-                        // var deviceCoordinate = item.coordinate;
-                        // var deviceVision = item.vision;
-                        $('#stream_db tbody').append('<tr raw="'+ rawImageUrl +'" estimation="'+ estimationImageUrl +'"><td>' + deviceName +'</td><td>'+ deviceBattery +'%</td><td>'+ deviceTimeStamp +'</td></tr>');
-                    });
-                });
+                // // Handler for the "pong" message. When the pong is received, the
+                // // time from the ping is stored, and the average of the last 30
+                // // samples is average and displayed.
+                // socket.on('the_pong', function() {
+                //     var latency = (new Date).getTime() - start_time;
+                //     ping_pong_times.push(latency);
+                //     ping_pong_times = ping_pong_times.slice(-30); // keep last 30 samples
+                //     var sum = 0;
+                //     for (var i = 0; i < ping_pong_times.length; i++)
+                //         sum += ping_pong_times[i];
+                //     $('#ping-pong').text(Math.round(10 * sum / ping_pong_times.length) / 10);
+                // });
+
+                // // Displaying Device Status
+                // socket.on('evoc_devices', function( msg, cb ){
+                //     $( '#' + msg.chip ).addClass('on');
+                //     $( '#' + msg.chip + ' .runtime' ).text( msg.runtime + 's');
+                //     $( '#' + msg.chip + ' .batt' ).text( msg.batt + '%' );
+                //     $( '#' + msg.chip + ' .status' ).text( capitalizeFirstLetter( msg.status ) );
+                // });
+
+                // // Displaying From Database
+                // var lastestFlag = true;
+                // socket.on('stream_db', function( msg, cb ){
+                //     // console.log(msg);
+                //     let latestRaw = ( msg[0].vision_raw ) ? msg[0].vision_raw : '/static/img/notfound.jpg';
+                //     let latestEstimation = ( msg[0].estimation_vision ) ? msg[0].estimation_vision : '/static/img/notfound.jpg';
+                //     let latestCapacity = msg[0].estimation_value ? msg[0].estimation_value : 0;
+                //     let latestBattery = msg[0].battery ? msg[0].battery : 0;
+                //     let latestCoordinate = msg[0].coordinate ?  msg[0].coordinate : '-';
+                //     let latestMode = msg[0].mode ? msg[0].mode : '-';
+                //     let latestTime = msg[0].timeago ? msg[0].timeago : '-';
+   
+                //     if( lastestFlag ){
+                //         $('#device-raw').attr("src", latestRaw);
+                //         $('#device-estimation').attr("src", latestEstimation);
+
+                //         $('#device-capacity').text( latestCapacity );
+                //         $('#device-battery').text( latestBattery );
+                //         $('#device-coordinate').text( latestCoordinate ); 
+                //         $('#device-mode').text( latestMode );
+                //         $('#device-time').text( latestTime );
+                //         lastestFlag = false;
+                //     }
+                
+
+                //     $('#stream_db tbody tr').remove();
+                //     msg.forEach( function( item, index) {
+                //         var rawImageUrl = msg[index].vision_raw ? msg[index].vision_raw : '/static/img/notfound.jpg';
+                //         var estimationImageUrl = msg[index].estimation_vision ? msg[index].estimation_vision : '/static/img/notfound.jpg';
+                //         var deviceName = item.name;
+                //         var deviceBattery = item.battery;
+                //         var deviceTimeStamp = item.timestamp;
+                //         // var deviceCoordinate = item.coordinate;
+                //         // var deviceVision = item.vision;
+                //         $('#stream_db tbody').append('<tr raw="'+ rawImageUrl +'" estimation="'+ estimationImageUrl +'"><td>' + deviceName +'</td><td>'+ deviceBattery +'%</td><td>'+ deviceTimeStamp +'</td></tr>');
+                //     });
+                // });
 
                 /// Displaying Image Estimation
                 //  socket.on('evoc_latest_device', function( msg, cb ){
