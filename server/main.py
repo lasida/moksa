@@ -223,7 +223,7 @@ def bacgkround_task(duration, data):
 if __name__ == "__main__":
     app.jinja_env.auto_reload = True
     app.config['TEMPLATES_AUTO_RELOAD'] = True
-    app.run(host='0.0.0.0', port=3000)
+    app.run(host='0.0.0.0', port=3000, threaded=True)
     app.run(debug=True)
 
     # socketio.run(app, host='0.0.0.0', port=3000, debug=True)

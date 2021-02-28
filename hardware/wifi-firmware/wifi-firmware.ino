@@ -55,7 +55,7 @@
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
-const char* ssid = "artemis";
+const char* ssid = "vyv";
 const char* password = "lasida123";
 
 //LED & VIBRATION GPIO
@@ -106,7 +106,7 @@ void initWiFi() {
   int try_connect = 0;
   while(WiFi.waitForConnectResult() != WL_CONNECTED){      
     Serial.print(".");
-    if( try_connect > 10 ){
+    if( try_connect > 5 ){
       ESP.restart();
     }
     try_connect++;
@@ -264,7 +264,7 @@ void loop(){
 
   Serial.print("RSSI: ");
   Serial.println(WiFi.RSSI());
-  delay(1000);
+  delay(1);
 }
 
 //--------------------------------- Sleeping Setup ---------------------------------//
@@ -475,7 +475,7 @@ bool getCameraPicture(){
   
   // Sending Payload
   Serial.print("ESP32 :: Sending Payload...");
-  bool rstatus = HTTP_POST_WIFI( "http://escoca.ap-1.evennode.com/v1/container/data", jsonVision );
+  bool rstatus = HTTP_POST_WIFI( "http://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonVision );
   if( rstatus ){
     Serial.println("....OK");
     return true;
@@ -496,12 +496,18 @@ bool getCameraPicture(){
 //--------------------------------- WIFI HTTP POST ---------------------------------//
 bool HTTP_POST_WIFI( char* ENDPOINTS, char* JsonDoc)
 {   
+
+//  adc_power_off();
+//  btStop();
   // WIfi Connected -> Send Data to Server
   if(WiFi.status()== WL_CONNECTED){
     unsigned long start = micros();
    
-    http.setTimeout(100000);
+    http.setTimeout(10000);
     http.begin( ENDPOINTS );
+
+    http.addHeader("Connection", "Keep-Alive");
+    http.addHeader("Cache-Control", "max-age=0");
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Content-Length", String(sizeof(jsonVision)) );
     int httpCode = http.POST(JsonDoc);;
@@ -535,4 +541,5 @@ bool HTTP_POST_WIFI( char* ENDPOINTS, char* JsonDoc)
     Serial.println("Error in WiFi connection");   
     return false;
   }
+  delay(1);
 }
