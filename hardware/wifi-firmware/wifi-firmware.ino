@@ -77,7 +77,7 @@ bool device_status_online = false;
 bool device_status_capture = false;
 
 //Post Temp
-char jsonVision[30000];
+char jsonVision[50000];
 char jsonStatus[100];
 
 //DateTime
@@ -442,8 +442,9 @@ bool getCameraPicture(){
   esp_camera_fb_return(fb);
   Serial.println("... OK");
   // Serial.println(base64Image);
+  //  base64Image  = base64Image.substring(0, 10000);
 
-  // Populate JSON
+  // Header Data
   Serial.print("ESP32 :: Generating Payload...");
   using SpiRamJsonDocument = BasicJsonDocument<SpiRamAllocator>;
   SpiRamJsonDocument doc(1048576);
@@ -452,45 +453,77 @@ bool getCameraPicture(){
   doc["long"] = "105.52151";
   doc["batt"] = "100";
   doc["mode"] = "charge";
-  doc["vision"] = base64Image;
-  Serial.print("Length Image : "); Serial.println( base64Image.length());
-  
-  jsonVision[base64Image.length() + 500];
+  doc["length"] = base64Image.length();
+  doc["parts"] = base64Image.length() / 5000;
   serializeJson(doc, jsonVision);  
   Serial.println("... OK");
 
-  // RSSI Meter
-  Serial.print("RSSI: ");
-  Serial.println(WiFi.RSSI());
-
-  //Serial.println("PSRAM found: " + String(psramFound()));
-  Serial.print("Total heap: ");
-  Serial.println(ESP.getHeapSize());
-  Serial.print("Free heap: ");
-  Serial.println(ESP.getFreeHeap());
-  Serial.print("Total PSRAM: ");
-  Serial.println(ESP.getPsramSize());
-  Serial.print("Free PSRAM: ");
-  Serial.println(ESP.getFreePsram());
-  
-  // Sending Payload
   Serial.print("ESP32 :: Sending Payload...");
   bool rstatus = HTTP_POST_WIFI( "http://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonVision );
-  if( rstatus ){
-    Serial.println("....OK");
-    return true;
-  }else{
-    Serial.println("....Failed");
-    return false;
-    errCount++;
+//  if( rstatus ){
+//    Serial.println("....OK");
+//    chunkVision = "";
+//  }else{
+//    Serial.println("....Failed");
+////      return false;
+//    errCount++;
+//  }
+  
+  // Vision Partial Sender
+  int Index;
+  int cIndex = 0;
+  for (Index = 0; Index < base64Image.length(); Index = Index+5000) {
+      // Populate JSON
+      Serial.print("ESP32 :: Vision patial...");
+      String chunkVision = base64Image.substring(Index, Index+5000);
+      using SpiRamJsonDocument = BasicJsonDocument<SpiRamAllocator>;
+      SpiRamJsonDocument doc(1048576);
+      doc["vision"] = chunkVision;
+      doc["index"] = cIndex;
+      doc["chunksize"] = chunkVision.length();
+      serializeJson(doc, jsonVision);  
+      Serial.println("... OK");
+
+      Serial.print("Length Image : "); Serial.println( base64Image.length());
+
+      // Sending Payload
+      Serial.print("ESP32 :: Sending Payload...");
+      bool rstatus = HTTP_POST_WIFI( "http://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonVision );
+      if( rstatus ){
+        Serial.println("....OK");
+        chunkVision = "";
+      }else{
+        Serial.println("....Failed");
+//      return false;
+        errCount++;
+      }
+      cIndex++;
   }
 
+  return true;
+
+  // Reset JSON Char
+  memset(jsonVision, 0, sizeof(jsonVision));
+  jsonVision[50000] = { 0 };
+  
+//  jsonVision[base64Image.length() + 500];
+ 
+  // RSSI Meter
+//  Serial.print("RSSI: ");
+//  Serial.println(WiFi.RSSI());
+//
+//  //Serial.println("PSRAM found: " + String(psramFound()));
+//  Serial.print("Total heap: ");
+//  Serial.println(ESP.getHeapSize());
+//  Serial.print("Free heap: ");
+//  Serial.println(ESP.getFreeHeap());
+//  Serial.print("Total PSRAM: ");
+//  Serial.println(ESP.getPsramSize());
+//  Serial.print("Free PSRAM: ");
+//  Serial.println(ESP.getFreePsram());
+  
   //Split Base64Image
   //Serial.println( jsonVision );
-  //int Index;
-  //for (Index = 0; Index < 23000; Index = Index+100) {
-  //  Serial.println(jsonVision.substring(Index, Index+100));
-  //}
 }
 
 //--------------------------------- WIFI HTTP POST ---------------------------------//
@@ -506,12 +539,13 @@ bool HTTP_POST_WIFI( char* ENDPOINTS, char* JsonDoc)
     http.setTimeout(10000);
     http.begin( ENDPOINTS );
 
-    http.addHeader("Connection", "Keep-Alive");
-    http.addHeader("Cache-Control", "max-age=0");
+    http.addHeader("Connection", "keep-alive");
+    http.addHeader("Cache-Control", "no-cache");
     http.addHeader("Content-Type", "application/json");
+    http.addHeader("Accept-Encoding", "gzip, deflate");
     http.addHeader("Content-Length", String(sizeof(jsonVision)) );
-    int httpCode = http.POST(JsonDoc);;
-    memset(jsonVision, 0, sizeof(jsonVision));
+    int httpCode = http.POST(JsonDoc);
+//    memset(jsonVision, 0, sizeof(jsonVision));
     
     if( httpCode == 0 || httpCode > 0 ){
       String response = http.getString(); 

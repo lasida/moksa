@@ -23,8 +23,8 @@
                     <h1>Monitoring Dashboard</h1>
                 </div>
                 <div class="col col-3">
-                    <p>Async mode is: <b>{{ async_mode }}</b></p>
-                    <p>Average Latency: <b><span id="ping-pong"></span>ms</b></p>
+                    <!-- <p>Async mode is: <b>{{ async_mode }}</b></p>
+                    <p>Average Latency: <b><span id="ping-pong"></span>ms</b></p> -->
                 </div>
             </header>
 
@@ -42,23 +42,20 @@
                 <div class="col col-3">
                     <!-- Call Estimation Template -->
                     {% include "services/estimation.html" %}
-
                 </div>
-
-       
             </div>
         </div>
 
         <script type="text/javascript" charset="utf-8">
-            function capitalizeFirstLetter(string) {
-                return string.charAt(0).toUpperCase() + string.slice(1);
-            }
-
             $(document).on( "click", "#stream_db tr", function() {
-                console.log( $(this).attr('raw') );
+                // console.log( $(this).attr('raw') );
                 $('#device-raw').attr( 'src', $(this).attr('raw') );
                 $('#device-estimation').attr( 'src', $(this).attr('estimation') );
             });
+
+            function capitalizeFirstLetter(string) {
+                return string.charAt(0).toUpperCase() + string.slice(1);
+            }
 
             function escoca_get_lastest_data( msg ){
                 let latestRaw = ( msg[0].vision_raw ) ? msg[0].vision_raw : '/static/img/notfound.jpg';

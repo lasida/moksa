@@ -92,8 +92,8 @@ def push_container() :
     data = request.get_json(force = True)
     
     #--> Delegating Task
-    duration = 1
-    thread = Thread(target=bacgkround_task, args=(duration, data))
+    duration = 3
+    thread = Thread(target=backgroundtask, args=(duration, data))
     thread.daemon = True
     thread.start()
     
@@ -108,7 +108,7 @@ def get_container_data() :
 
 # -------------------------------------------------- #
 
-def bacgkround_task(duration, data):
+def backgroundtask(duration, data):
     with app.app_context():
         time.sleep(duration)
 
@@ -212,7 +212,7 @@ def bacgkround_task(duration, data):
             # -------------------------- JSON RESULTS -------------------------- #
             
             #-------------------------- DB PUSH and Return -------------------------- #
-            db.push(jsonData)
+            # db.push(jsonData)
 
             return "Success Estimation...", 200
         else: 
