@@ -11,6 +11,16 @@
  * VGA Size Image : 21KB / 21.189 bytes
  * WIFI and Camera Probem
  * Currrent Drop, Get Camera Before WIFI
+ * 
+ * Features ::
+ * Vibration Check
+ * Sleep
+ * Post Image Over Wifi
+ * Partial POST HTTP for bigger Size
+ * 
+ * Module ::
+ * ESP32CAM
+ * Vibration Module
  */
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -55,14 +65,15 @@
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
-const char* ssid = "vyv";
-const char* password = "lasida123";
-
 //LED & VIBRATION GPIO
 #define GPIO_LED 12
 #define BUTTON_PIN_BITMASK 0x4
 #define GPIO_VIBRATION 2
 #define GPIO_FLASH 4
+
+// Wifi Credentials
+const char* ssid = "vyv";
+const char* password = "lasida123";
 
 // Object Intialize
 WiFiClient client;
@@ -72,9 +83,9 @@ HTTPClient http;
 uint32_t chipid;  
 
 bool status_camera = false;
-bool status_gps = false;
 bool device_status_online = false;
 bool device_status_capture = false;
+bool device_mode = "charge";
 
 //Post Temp
 char jsonVision[50000];
@@ -88,8 +99,9 @@ const int   daylightOffset_sec = 3600;
 char device_timenow[20];
 char device_datenow[30];
 char device_datetime[40];
+char device_unique[20];
 
-// Sleep Variable
+// Sleep Factor
 #define uS_TO_S_FACTOR 1000000ULL
 unsigned long times;
 unsigned long timeToSleep;
@@ -99,20 +111,28 @@ RTC_DATA_ATTR int bootCount = 0;
 RTC_DATA_ATTR unsigned long uptime_seconds = 0;
 unsigned long local_time_seconds;
 
-void initWiFi() {
+/*
+ * WIFI Init()
+ * Auto Restart Module 3s Not Connected
+ * Display RSSI and Local IP
+ * Auto Check Connected and Reconnect
+*/
+void WiFiInit() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   Serial.print("Connecting to WiFi ..");
   int try_connect = 0;
   while(WiFi.waitForConnectResult() != WL_CONNECTED){      
     Serial.print(".");
-    if( try_connect > 5 ){
+    if( try_connect > 3 ){
       ESP.restart();
     }
     try_connect++;
     delay(1000);
   }
   Serial.println(WiFi.localIP());
+  Serial.print("RSSI: ");
+  Serial.println(WiFi.RSSI());
 }
 
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
@@ -133,67 +153,97 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
   WiFi.begin(ssid, password);
 }
 
-//============================== SETUP ============================== //
+/**
+ * Setup()
+ * 
+ * Control BrownOut
+ * Get Mac Address 
+ * Blink Indicator Startup
+ * 
+ * Vibration Check()
+ * 
+ * Connect to WIFI
+ * setupCamera();
+ * 
+ * getDateTime();
+ * TimeCapture Check()
+ * 
+ * CaptureImage()
+ * POST Partial()
+ * Sleep()
+*/
 void setup()
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
-
-  //The chip ID is essentially its MAC address(length: 6 bytes).
-  chipid = ESP.getEfuseMac();
   Serial.begin(115200);
+  
+  // The chip ID is essentially its MAC address(length: 6 bytes).
+  chipid = ESP.getEfuseMac();
+ 
+  // GPIO Setup
+  pinMode(GPIO_FLASH, OUTPUT);
   pinMode(GPIO_VIBRATION, INPUT_PULLDOWN); 
-
+  
   // ----- LED BLINK 10 Times ----- //
   ledcSetup(0, 5000, 13);
   ledcAttachPin(GPIO_LED, 0);
   indicator_fast_blink( 6 );
-  pinMode(GPIO_FLASH, OUTPUT);
 
-  // --> Connecting WIFI
+  delay(5000);
+  // WakeUp by Vibration Checking Vibration
+//  if( vibrationTransportChecker() ){
+//    Serial.println( "Vibrate" );
+//  }else{
+//    Serial.println( "Still" );
+//  }
 
-  WiFi.disconnect(true); 
-  delay(1000);
 
-  initWiFi();
-
-  Serial.println();
-  Serial.println();
-  Serial.println("Wait for WiFi... ");
   
-  WiFi.onEvent(WiFiStationConnected, SYSTEM_EVENT_STA_CONNECTED);
-  WiFi.onEvent(WiFiGotIP, SYSTEM_EVENT_STA_GOT_IP);
-  WiFi.onEvent(WiFiStationDisconnected, SYSTEM_EVENT_STA_DISCONNECTED);   
+//  delay(5000);
+//  // --> Connecting WIFI
+//  WiFi.disconnect(true); 
+//  delay(100);
+//  WiFiInit();
+//  
+//  Serial.println("Wait for WiFi... ");
+//  WiFi.onEvent(WiFiStationConnected, SYSTEM_EVENT_STA_CONNECTED);
+//  WiFi.onEvent(WiFiGotIP, SYSTEM_EVENT_STA_GOT_IP);
+//  WiFi.onEvent(WiFiStationDisconnected, SYSTEM_EVENT_STA_DISCONNECTED);   
 
   // --> Setup Camera
-  setupCamera();
+//  setupCamera();
 
   //Increment boot number and print it every reboot
   ++bootCount;
   Serial.println("Boot Number: " + String(bootCount));
   Serial.println("Uptime : " + String(uptime_seconds));
 
-  //init and get the time -> Need Connection
+  //Setup Date TIme UTC
   delay(1000);
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-  deviceNetworkServer();
+  setupDateTime();
 
   Serial.println("ESP32 :: " + String(chipid) +" Setup Done !!!");
-  Serial.println('\n');
 
   //Print the wakeup reason for ESP32
   print_wakeup_reason();
-
+   int GPIO_reason = esp_sleep_get_ext1_wakeup_status();
+  Serial.print("GPIO that triggered the wake up: GPIO ");
+  Serial.println((log(GPIO_reason))/log(2), 0);
   //Wake Up using Trigger | Vibration
-  //print_GPIO_wake_up();
-  //esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK,ESP_EXT1_WAKEUP_ANY_HIGH);
+  
+  esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK,ESP_EXT1_WAKEUP_ANY_HIGH);
+
+   setupSleep(300);
 }
 
 
-//============================== LOOP ============================== //
-int startFlag;
-unsigned long startTime = 0;
-unsigned long previousTime = 0;
-int duration = 100;
+/**
+ * Loop() 
+ * 
+ * Runtime Check();
+ */
+
 
 void loop(){
   // Log RunTime
@@ -203,68 +253,81 @@ void loop(){
   
   Serial.println("Runtime : " + String(local_time_seconds) );
   Serial.println("Uptime : " + String(uptime_seconds) );
+
+  if( vibrationTransportChecker() ){
+    Serial.println( "Vibrate" );
+  }else{
+    Serial.println( "Still" );
+  }
   
-  //--------------------------------- Vibration Reading ---------------------------------//
-
-  // Vibration True and Flag False
-  //  if ((digitalRead(GPIO_VIBRATION) == 1) && (startFlag == 0) ){ // start new time sequence
-  //    startFlag = 1;
-  //    startTime = millis();
-  //    previousTime = startTime;
-  //  }
-  //
-  //  // Vibration Check For 5s Continue
-  //  if ( (startFlag == 1 ) && ((millis() - previousTime) >= duration) ) {  // duration = 100, sample 10 times a second
-  //    previousTime = previousTime + duration;
-  //    if ((millis() - startTime ) <= 5000){ // still waiting it out
-  //      if (digitalRead(GPIO_VIBRATION) == 0){
-  //        startFlag = 0;
-  //      }else{
-  //        Serial.println( "Vibration" );
-  //        }
-  //    }
-  //    
-  //    if ((millis() - startTime) > 5000){ // Reading for 5s
-  //      if (digitalRead(GPIO_VIBRATION) == 0){
-  //        startFlag = 0;
-  //        device_mode = "charge";
-  //      } else{  // made it!
-  //        device_mode = "transport";
-  //        Serial.println( "Mode :: Transport" );
-  //        startFlag = 0;
-  //      }
-  //    }
-  //    // do other stuff while time is passing
-  //  }
-  
-  //--------------------------- Sending Status Online -------------------------//
-
-  // Sending Status Online to Server  
-  //  if( ! device_status_online ){
-  //      if( sendStatus( "Online" ) ){
-  //          device_status_online = true;
-  //      }
-  //  }
-  //  sendStatus("Online");
-
   //------------------------------ Checking Time -----------------------------//
-
   if( !status_camera ){
       indicator_error();
       ESP.restart();
   }else{
-    // timeToSleep = getTimeLeft( timetoDecimal(device_timenow));
-    // Serial.print( "Time to Decimal : " ); Serial.print( timeToSleep ); Serial.println( "s" ); 
-    timeToSleep = 600; // 5 minutes
+      //timeToSleep = getTimeLeft( timetoDecimal(device_timenow));
+      //Serial.print( "Time to Decimal : " ); Serial.print( timeToSleep ); Serial.println( "s" ); 
+     timeToSleep = 300; // 5 minutes
     
     if( getCameraPicture() ){
       setupSleep(timeToSleep);
     }
   }
 
-  Serial.print("RSSI: ");
-  Serial.println(WiFi.RSSI());
   delay(1);
+}
+
+/**
+ * Digital Reading for GPIO Vibration
+ * Sending Device Status
+ */
+int startFlag;
+unsigned long startTime = 0;
+unsigned long previousTime = 0;
+int duration = 100;
+bool vibrationTransportChecker(){
+  // Vibration True and Flag False
+  if ((digitalRead(GPIO_VIBRATION) == 1) && (startFlag == 0) ){ // start new time sequence
+    startFlag = 1;
+    startTime = millis();
+    previousTime = startTime;
+    Serial.print( "Milis : ");
+    Serial.println(startTime);
+  }
+
+  // Sending Devies Status
+  //  ESP32_DEVICE_STATUS( "online", "charge" );
+        
+  // Vibration Check For 5s Continue
+  if ( (startFlag == 1 ) && ((millis() - previousTime) >= duration) ) {  // duration = 100, sample 10 times a second
+    previousTime = previousTime + duration;
+    if ((millis() - startTime ) <= 5000){ // still waiting it out
+      if (digitalRead(GPIO_VIBRATION) == 0){
+        startFlag = 0;
+      }else{
+        Serial.println( "Vibration" );
+        }
+    }
+    
+    if ((millis() - startTime) > 5000){ // Reading for 5s
+      if (digitalRead(GPIO_VIBRATION) == 0){
+        startFlag = 0;
+        device_mode = "charge";
+        Serial.println( "Mode :: Charge" );
+//        return false;
+                  
+      } else{  // made it!
+        device_mode = "transport";
+        Serial.println( "Mode :: Transport" );
+        startFlag = 0;
+  
+        // Sending Device Status
+//        ESP32_DEVICE_STATUS( "online", "transport" );
+//        return true;
+      }
+    }
+    // do other stuff while time is passing
+  }  
 }
 
 //--------------------------------- Sleeping Setup ---------------------------------//
@@ -310,17 +373,18 @@ void setupSleep( int timeSleep ){
 }
 
 //--------------------------------- NetworkTime ---------------------------------//
-void deviceNetworkServer(){
+void setupDateTime(){
   struct tm timeinfo;
   while(!getLocalTime(&timeinfo)){
     Serial.println("Failed to obtain time");
-    delay(1000);
+    delay(500);
   }
   Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
 
   strftime(device_datenow,30, "%Y/%m/%d", &timeinfo); // 2020-01-25
   strftime(device_timenow,20, "%H:%M:%S", &timeinfo); // 10:24:03
   strftime(device_datetime,40, "%Y/%m/%d, %H:%M:%S", &timeinfo);
+  strftime(device_unique,20, "%H%M%S", &timeinfo); // 102403
 
   Serial.print("NetworkTime :: DateTime = ");
   Serial.println(device_datetime);
@@ -341,17 +405,18 @@ String deviceDateNow(){
 }
 
 //------------------------------- Device Status -------------------------------//
-//bool sendStatus( String statue ){
-//  uptime_seconds += local_time_seconds;
-//  Serial.println("POST :: Device Status Online");
-//  DynamicJsonDocument doc(100);
-//  doc["chip"] = String(chipid);
-//  doc["status"] = statue; 
+bool ESP32_DEVICE_STATUS( String statue, String mode_device ){
+  uptime_seconds += local_time_seconds;
+  Serial.println("POST :: Device Status");
+  DynamicJsonDocument doc(100);
+  doc["chip"] = String(chipid);
+  doc["status"] = statue; 
 //  doc["batt"] = device_battery;
-//  doc["runtime"] = String(uptime_seconds);
-//  serializeJson(doc, jsonStatus);  
-//  bool rstatus = HTTP_POST_WIFI( "http://ecov.ap-1.evennode.com/v1/container/status", jsonStatus );
-//}
+  doc["mode"] = mode_device;
+  doc["runtime"] = String(uptime_seconds);
+  serializeJson(doc, jsonStatus);  
+  bool rstatus = ESP32_POST_HTTP( "https://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonStatus );
+}
 
 //--------------------------------- Camera ---------------------------------//
 void setupCamera(){
@@ -441,11 +506,11 @@ bool getCameraPicture(){
   }
   esp_camera_fb_return(fb);
   Serial.println("... OK");
-  // Serial.println(base64Image);
-  //  base64Image  = base64Image.substring(0, 10000);
 
   // Header Data
   Serial.print("ESP32 :: Generating Payload...");
+  int parts = round(base64Image.length() / 5000);
+  String idPOST = String(chipid) + '-' + String(device_unique);
   using SpiRamJsonDocument = BasicJsonDocument<SpiRamAllocator>;
   SpiRamJsonDocument doc(1048576);
   doc["chip"] = String(chipid);
@@ -454,32 +519,30 @@ bool getCameraPicture(){
   doc["batt"] = "100";
   doc["mode"] = "charge";
   doc["length"] = base64Image.length();
-  doc["parts"] = base64Image.length() / 5000;
+  doc["parts"] = parts;
+  doc["id"]= idPOST;
   serializeJson(doc, jsonVision);  
   Serial.println("... OK");
 
   Serial.print("ESP32 :: Sending Payload...");
-  bool rstatus = HTTP_POST_WIFI( "http://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonVision );
-//  if( rstatus ){
-//    Serial.println("....OK");
-//    chunkVision = "";
-//  }else{
-//    Serial.println("....Failed");
-////      return false;
-//    errCount++;
-//  }
-  
+  bool rstatus = ESP32_POST_HTTP( "http://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonVision );
+
   // Vision Partial Sender
   int Index;
   int cIndex = 0;
   for (Index = 0; Index < base64Image.length(); Index = Index+5000) {
       // Populate JSON
-      Serial.print("ESP32 :: Vision patial...");
+      Serial.print("ESP32 :: POST PARTIAL...");
       String chunkVision = base64Image.substring(Index, Index+5000);
       using SpiRamJsonDocument = BasicJsonDocument<SpiRamAllocator>;
       SpiRamJsonDocument doc(1048576);
+      doc["id"]= idPOST;
+      doc["chip"] = String(chipid);
       doc["vision"] = chunkVision;
       doc["index"] = cIndex;
+      if( cIndex == parts ){
+        doc["parity"] = "OK";
+      }
       doc["chunksize"] = chunkVision.length();
       serializeJson(doc, jsonVision);  
       Serial.println("... OK");
@@ -488,50 +551,39 @@ bool getCameraPicture(){
 
       // Sending Payload
       Serial.print("ESP32 :: Sending Payload...");
-      bool rstatus = HTTP_POST_WIFI( "http://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonVision );
+      bool rstatus = ESP32_POST_HTTP( "http://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonVision );
       if( rstatus ){
         Serial.println("....OK");
-        chunkVision = "";
       }else{
         Serial.println("....Failed");
 //      return false;
         errCount++;
       }
       cIndex++;
+      delay(50);
   }
-
-  return true;
 
   // Reset JSON Char
   memset(jsonVision, 0, sizeof(jsonVision));
-  jsonVision[50000] = { 0 };
   
-//  jsonVision[base64Image.length() + 500];
- 
-  // RSSI Meter
-//  Serial.print("RSSI: ");
-//  Serial.println(WiFi.RSSI());
-//
-//  //Serial.println("PSRAM found: " + String(psramFound()));
-//  Serial.print("Total heap: ");
-//  Serial.println(ESP.getHeapSize());
-//  Serial.print("Free heap: ");
-//  Serial.println(ESP.getFreeHeap());
-//  Serial.print("Total PSRAM: ");
-//  Serial.println(ESP.getPsramSize());
-//  Serial.print("Free PSRAM: ");
-//  Serial.println(ESP.getFreePsram());
-  
-  //Split Base64Image
-  //Serial.println( jsonVision );
+  //Serial.println("PSRAM found: " + String(psramFound()));
+  Serial.print("Total heap: ");
+  Serial.println(ESP.getHeapSize());
+  Serial.print("Free heap: ");
+  Serial.println(ESP.getFreeHeap());
+  Serial.print("Total PSRAM: ");
+  Serial.println(ESP.getPsramSize());
+  Serial.print("Free PSRAM: ");
+  Serial.println(ESP.getFreePsram());
+
+  return true;
 }
 
 //--------------------------------- WIFI HTTP POST ---------------------------------//
-bool HTTP_POST_WIFI( char* ENDPOINTS, char* JsonDoc)
+bool ESP32_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
 {   
-
-//  adc_power_off();
 //  btStop();
+  
   // WIfi Connected -> Send Data to Server
   if(WiFi.status()== WL_CONNECTED){
     unsigned long start = micros();
@@ -545,7 +597,7 @@ bool HTTP_POST_WIFI( char* ENDPOINTS, char* JsonDoc)
     http.addHeader("Accept-Encoding", "gzip, deflate");
     http.addHeader("Content-Length", String(sizeof(jsonVision)) );
     int httpCode = http.POST(JsonDoc);
-//    memset(jsonVision, 0, sizeof(jsonVision));
+
     
     if( httpCode == 0 || httpCode > 0 ){
       String response = http.getString(); 
@@ -567,6 +619,7 @@ bool HTTP_POST_WIFI( char* ENDPOINTS, char* JsonDoc)
     }
 
     http.end();
+//    memset(JsonDoc, 0, sizeof(JsonDoc));
     
     unsigned long end = micros();
     unsigned long delta = end - start;
