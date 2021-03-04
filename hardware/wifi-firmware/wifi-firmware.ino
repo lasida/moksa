@@ -71,6 +71,11 @@
 #define GPIO_VIBRATION 2
 #define GPIO_FLASH 4
 
+const byte interruptPin = 2;
+int numberOfInterrupts = 0;
+
+portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+
 // Wifi Credentials
 const char* ssid = "vyv";
 const char* password = "lasida123";
@@ -130,9 +135,7 @@ void WiFiInit() {
     try_connect++;
     delay(1000);
   }
-  Serial.println(WiFi.localIP());
-  Serial.print("RSSI: ");
-  Serial.println(WiFi.RSSI());
+
 }
 
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
@@ -143,6 +146,8 @@ void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info){
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
+  Serial.print("RSSI: ");
+  Serial.println(WiFi.RSSI());
 }
 
 void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
@@ -172,6 +177,7 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
  * POST Partial()
  * Sleep()
 */
+
 void setup()
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
@@ -182,36 +188,26 @@ void setup()
  
   // GPIO Setup
   pinMode(GPIO_FLASH, OUTPUT);
-  pinMode(GPIO_VIBRATION, INPUT_PULLDOWN); 
-  
+  pinMode(BUTTON_PIN_BITMASK, INPUT_PULLUP); 
+
+  esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK,ESP_EXT1_WAKEUP_ANY_HIGH);
   // ----- LED BLINK 10 Times ----- //
   ledcSetup(0, 5000, 13);
   ledcAttachPin(GPIO_LED, 0);
   indicator_fast_blink( 6 );
 
-  delay(5000);
-  // WakeUp by Vibration Checking Vibration
-//  if( vibrationTransportChecker() ){
-//    Serial.println( "Vibrate" );
-//  }else{
-//    Serial.println( "Still" );
-//  }
-
-
+  // --> Connecting WIFI
+  WiFi.disconnect(true); 
+  delay(0100);
+  WiFiInit();
   
-//  delay(5000);
-//  // --> Connecting WIFI
-//  WiFi.disconnect(true); 
-//  delay(100);
-//  WiFiInit();
-//  
-//  Serial.println("Wait for WiFi... ");
-//  WiFi.onEvent(WiFiStationConnected, SYSTEM_EVENT_STA_CONNECTED);
-//  WiFi.onEvent(WiFiGotIP, SYSTEM_EVENT_STA_GOT_IP);
-//  WiFi.onEvent(WiFiStationDisconnected, SYSTEM_EVENT_STA_DISCONNECTED);   
+  Serial.println("Wait for WiFi... ");
+  WiFi.onEvent(WiFiStationConnected, SYSTEM_EVENT_STA_CONNECTED);
+  WiFi.onEvent(WiFiGotIP, SYSTEM_EVENT_STA_GOT_IP);
+  WiFi.onEvent(WiFiStationDisconnected, SYSTEM_EVENT_STA_DISCONNECTED);   
 
   // --> Setup Camera
-//  setupCamera();
+  setupCamera();
 
   //Increment boot number and print it every reboot
   ++bootCount;
@@ -227,22 +223,7 @@ void setup()
 
   //Print the wakeup reason for ESP32
   print_wakeup_reason();
-   int GPIO_reason = esp_sleep_get_ext1_wakeup_status();
-  Serial.print("GPIO that triggered the wake up: GPIO ");
-  Serial.println((log(GPIO_reason))/log(2), 0);
-  //Wake Up using Trigger | Vibration
-  
-  esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK,ESP_EXT1_WAKEUP_ANY_HIGH);
-
-   setupSleep(300);
 }
-
-
-/**
- * Loop() 
- * 
- * Runtime Check();
- */
 
 
 void loop(){
@@ -254,12 +235,6 @@ void loop(){
   Serial.println("Runtime : " + String(local_time_seconds) );
   Serial.println("Uptime : " + String(uptime_seconds) );
 
-  if( vibrationTransportChecker() ){
-    Serial.println( "Vibrate" );
-  }else{
-    Serial.println( "Still" );
-  }
-  
   //------------------------------ Checking Time -----------------------------//
   if( !status_camera ){
       indicator_error();
@@ -275,59 +250,6 @@ void loop(){
   }
 
   delay(1);
-}
-
-/**
- * Digital Reading for GPIO Vibration
- * Sending Device Status
- */
-int startFlag;
-unsigned long startTime = 0;
-unsigned long previousTime = 0;
-int duration = 100;
-bool vibrationTransportChecker(){
-  // Vibration True and Flag False
-  if ((digitalRead(GPIO_VIBRATION) == 1) && (startFlag == 0) ){ // start new time sequence
-    startFlag = 1;
-    startTime = millis();
-    previousTime = startTime;
-    Serial.print( "Milis : ");
-    Serial.println(startTime);
-  }
-
-  // Sending Devies Status
-  //  ESP32_DEVICE_STATUS( "online", "charge" );
-        
-  // Vibration Check For 5s Continue
-  if ( (startFlag == 1 ) && ((millis() - previousTime) >= duration) ) {  // duration = 100, sample 10 times a second
-    previousTime = previousTime + duration;
-    if ((millis() - startTime ) <= 5000){ // still waiting it out
-      if (digitalRead(GPIO_VIBRATION) == 0){
-        startFlag = 0;
-      }else{
-        Serial.println( "Vibration" );
-        }
-    }
-    
-    if ((millis() - startTime) > 5000){ // Reading for 5s
-      if (digitalRead(GPIO_VIBRATION) == 0){
-        startFlag = 0;
-        device_mode = "charge";
-        Serial.println( "Mode :: Charge" );
-//        return false;
-                  
-      } else{  // made it!
-        device_mode = "transport";
-        Serial.println( "Mode :: Transport" );
-        startFlag = 0;
-  
-        // Sending Device Status
-//        ESP32_DEVICE_STATUS( "online", "transport" );
-//        return true;
-      }
-    }
-    // do other stuff while time is passing
-  }  
 }
 
 //--------------------------------- Sleeping Setup ---------------------------------//
@@ -415,7 +337,7 @@ bool ESP32_DEVICE_STATUS( String statue, String mode_device ){
   doc["mode"] = mode_device;
   doc["runtime"] = String(uptime_seconds);
   serializeJson(doc, jsonStatus);  
-  bool rstatus = ESP32_POST_HTTP( "https://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonStatus );
+  bool rstatus = ESP32_POST_HTTP( "http://escoca.ap-1.evennode.com/v1/device/status", jsonStatus );
 }
 
 //--------------------------------- Camera ---------------------------------//
@@ -525,7 +447,7 @@ bool getCameraPicture(){
   Serial.println("... OK");
 
   Serial.print("ESP32 :: Sending Payload...");
-  bool rstatus = ESP32_POST_HTTP( "http://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonVision );
+  bool rstatus = ESP32_POST_HTTP( "http://escoca.ap-1.evennode.com/v1/device/status", jsonVision );
 
   // Vision Partial Sender
   int Index;
@@ -551,7 +473,7 @@ bool getCameraPicture(){
 
       // Sending Payload
       Serial.print("ESP32 :: Sending Payload...");
-      bool rstatus = ESP32_POST_HTTP( "http://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonVision );
+      bool rstatus = ESP32_POST_HTTP( "http://escoca.ap-1.evennode.com/v1/device/status", jsonVision );
       if( rstatus ){
         Serial.println("....OK");
       }else{

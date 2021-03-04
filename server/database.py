@@ -33,6 +33,11 @@ class Repository:
     object_ID = self.db.devices.insert_one( item ).inserted_id
     return object_ID
 
+  def pushTemp( self, obj ):
+    item = json.loads(obj) 
+    object_ID = self.db.temps.insert_one( item ).inserted_id
+    return object_ID
+
 
   def update( self, item, new ):
     result =  self.db.devices.update_one( tag , {"$set": new })
