@@ -9,7 +9,7 @@
                             Device
                         </th>
                         <th>
-                            No Phone
+                            Phone
                         </th>
                         <th>
                             Status
@@ -18,17 +18,13 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>Lasida</td>
-                        <td>08561655028</td>
-                        <td>Sent</td>
-                    </tr>
-                    <!-- <tr>
-                        <td>VCM-02</td>
-                        <td>08561655028</td>
-                        <td>Sent</td>
-                    </tr> -->
-
+                    {% for stack in stackholder %}
+                        <tr id="">
+                            <td>{{stackholder[stack]}}</td>
+                            <td>{{stack}}</td>
+                            <td>-</td>
+                        </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>

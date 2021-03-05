@@ -1,18 +1,19 @@
 <style>
-    #stream_db td{
+    #stream_db td {
         cursor: pointer;
     }
-    #stream_db .grid-container{
+
+    #stream_db .grid-container {
         width: 100%;
         overflow-x: auto;
     }
 
-    #stream_db tbody{
+    #stream_db tbody {
         width: 100vw;
     }
 
-    #stream_db td{
-        color:greenyellow;
+    #stream_db td {
+        color: greenyellow;
         font-size: 13px;
     }
 </style>
@@ -43,14 +44,14 @@
                 </thead>
                 <tbody>
                     {% for item in stream_db %}
-                        <tr{% if loop.index == 1 %} class="active"{% endif %}>
-                            <td>{{item.name}}</td>W
-                            <!-- <td>{{item.coordinate}}</td> -->
-                            <td>{{item.battery}}%</td>
-                            <!-- <td>{{item.vision}}</td> -->
-                            <td>{{item.timestamp}}</td>
+                    <tr{% if loop.index == 1 %} class="active" {% endif %}>
+                        <td>{{item.name}}</td>W
+                        <!-- <td>{{item.coordinate}}</td> -->
+                        <td>{{item.battery}}%</td>
+                        <!-- <td>{{item.vision}}</td> -->
+                        <td>{{item.timestamp}}</td>
                         </tr>
-                    {% endfor %}
+                        {% endfor %}
                 </tbody>
             </table>
         </div>

@@ -1,7 +1,7 @@
 import cv2
 # from main import app
 
-class EstimationCapacity:
+class Estimation:
   raw = ""
   colorspace = ""
   img = ""

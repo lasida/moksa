@@ -1,5 +1,4 @@
-
-<fieldset id="evoc_devices">
+<fieldset id="devices">
     <legend>Devices Status</legend>
     <div class="grid">
         <div class="grid-container">
@@ -23,12 +22,12 @@
                 </thead>
                 <tbody>
                     {% for device in devices %}
-                        <tr id="{{device}}">
-                            <td>{{devices[device]}}</td>
-                            <td class="runtime">-</td>
-                            <td class="batt">-</td>
-                            <td class="status">Offline</td>
-                        </tr>
+                    <tr id="{{device}}">
+                        <td>{{devices[device]}}</td>
+                        <td class="runtime">-</td>
+                        <td class="batt">-</td>
+                        <td class="status">Offline</td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>

@@ -206,33 +206,33 @@ void loop(){
   //  }
 
   //************** Get GPS data *******************
-   if (sim808.getGPS()) {
-    SerialBT.print(sim808.GPSdata.year);
-    SerialBT.print("/");
-    SerialBT.print(sim808.GPSdata.month);
-    SerialBT.print("/");
-    SerialBT.print(sim808.GPSdata.day);
-    SerialBT.print(" ");
-    SerialBT.print(sim808.GPSdata.hour);
-    SerialBT.print(":");
-    SerialBT.print(sim808.GPSdata.minute);
-    SerialBT.print(":");
-    SerialBT.print(sim808.GPSdata.second);
-    SerialBT.print(":");
-    SerialBT.println(sim808.GPSdata.centisecond);
-    SerialBT.print("latitude :");
-    SerialBT.println(sim808.GPSdata.lat);
-    SerialBT.print("longitude :");
-    SerialBT.println(sim808.GPSdata.lon);
-    SerialBT.print("speed_kph :");
-    SerialBT.println(sim808.GPSdata.speed_kph);
-    SerialBT.print("heading :");
-    SerialBT.println(sim808.GPSdata.heading);
-    SerialBT.println();
-
-    //************* Turn off the GPS power ************
-    sim808.detachGPS();
-  }
+//   if (sim808.getGPS()) {
+//    SerialBT.print(sim808.GPSdata.year);
+//    SerialBT.print("/");
+//    SerialBT.print(sim808.GPSdata.month);
+//    SerialBT.print("/");
+//    SerialBT.print(sim808.GPSdata.day);
+//    SerialBT.print(" ");
+//    SerialBT.print(sim808.GPSdata.hour);
+//    SerialBT.print(":");
+//    SerialBT.print(sim808.GPSdata.minute);
+//    SerialBT.print(":");
+//    SerialBT.print(sim808.GPSdata.second);
+//    SerialBT.print(":");
+//    SerialBT.println(sim808.GPSdata.centisecond);
+//    SerialBT.print("latitude :");
+//    SerialBT.println(sim808.GPSdata.lat);
+//    SerialBT.print("longitude :");
+//    SerialBT.println(sim808.GPSdata.lon);
+//    SerialBT.print("speed_kph :");
+//    SerialBT.println(sim808.GPSdata.speed_kph);
+//    SerialBT.print("heading :");
+//    SerialBT.println(sim808.GPSdata.heading);
+//    SerialBT.println();
+//
+//    //************* Turn off the GPS power ************
+//    sim808.detachGPS();
+//  }
 
   //--------------------------------- Checking Time ---------------------------------//
 
@@ -590,14 +590,13 @@ bool cameraCapture(){
   doc["mode"] = "charge";
   doc["length"] = base64Image.length();
   doc["parts"] = payloadPart;
-  doc["id"]= payloadID;
+  doc["id"] = payloadID;
   serializeJson(doc, jsonVision);  
   Serial.println("... OK");
 
   Serial.print("ESP32 :: Send Header...");
   bool rstatus = SIM808_POST_HTTP( "http://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonVision );
 
-  
   // Vision Partial Sender
   int Index;
   int partIndex = 0;
@@ -613,7 +612,7 @@ bool cameraCapture(){
     doc["chip"] = String(chipid);
     doc["vision"] = chunkVision;
     doc["index"] = partIndex;
-    doc["chunksize"] = chunkVision.length();
+    doc["chunk"] = chunkVision.length();
     if( partIndex == payloadPart ){
       doc["parity"] = "true";
     }
@@ -633,7 +632,7 @@ bool cameraCapture(){
     partIndex++;
     
     Serial.println("AT+HTTPTERM");
-    delay(3000);
+    delay(5000);
   }
 
   // Reset JSON Char
@@ -696,7 +695,6 @@ bool SIM808_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
   }
 
   memset(JsonDoc, 0, sizeof(JsonDoc));
-    
 }
 
 /**

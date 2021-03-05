@@ -1,56 +1,54 @@
 <style>
-    /* Estimation */
-#estimation{
-    margin-top:10px;
-}
-#estimation img {
-    width: 100%;
-    max-width: 150px;
-}
-#estimation td{
-    color: white;
-    text-align: left;
-    font-size: 14px;
-    padding: 5px 1px;
-}
+    #estimation {
+        margin-top: 10px;
+    }
+
+    #estimation img {
+        width: 100%;
+        max-width: 150px;
+    }
+
+    #estimation td {
+        color: white;
+        font-size: 14px;
+        padding: 5px;
+    }
 </style>
 <fieldset id="estimation">
-    <legend id="device-name">Image Estimation Volume</legend>
+    <legend>Capacity Estimation</legend>
     <table>
         <tbody>
             <tr>
                 <td>
                     <img id="device-raw" src="{{ url_for('static', filename='img/notfound.jpg') }}" alt="Raw Image">
-                    <p style="margin:0;">Raw Image</p>
                 </td>
                 <td>
                     <img id="device-estimation" src="{{ url_for('static', filename='img/notfound.jpg') }}" alt="Estimation Image">
-                    <p style="margin:0;">Computed Estimation</p>
-                </td>	
+                </td>
             </tr>
         </tbody>
     </table>
-    <table> 
+    <table>
         <tbody>
             <tr>
-                <td>Capacity</td>
-                <td id="device-capacity">0</td>	
+                <td class="text-left">Capacity</td>
+                <td id="device-capacity" class="text-right">0</td>
             </tr>
             <tr>
-                <td>Battery</td>
-                <td id="device-battery">0</td>	
+                <td class="text-left">Battery</td>
+                <td id="device-battery" class="text-right">0</td>
             </tr>
             <tr>
-                <td>Location</td>
-                <td id="device-coordinate">-</td>	
+                <td class="text-left">Location</td>
+                <td id="device-coordinate" class="text-right">-</td>
             </tr>
             <tr>
-                <td>Mode</td>
-                <td id="device-mode">-</td>	
+                <td class="text-left">Mode</td>
+                <td id="device-mode" class="text-right">-</td>
             </tr>
             <tr>
-                <td>Timestamp</td>
-                <td id="device-time">-</td>	
+                <td class="text-left">Timestamp</td>
+                <td id="device-time" class="text-right">-</td>
             </tr>
         </tbody>
     </table>

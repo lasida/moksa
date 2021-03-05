@@ -1,118 +1,136 @@
-
 <link rel="stylesheet" href="https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.css">
-<script src="https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.js" ></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-ajax/2.1.0/leaflet.ajax.min.js" ></script>
-<script src="https://unpkg.com/pouchdb@^5.2.0/dist/pouchdb.js" ></script>
-<script src="https://unpkg.com/leaflet.tilelayer.pouchdbcached@latest/L.TileLayer.PouchDBCached.js" ></script>
-<script src="https://mutsuyuki.github.io/Leaflet.SmoothWheelZoom/SmoothWheelZoom.js" ></script>
-<fieldset>
+<script src="https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-ajax/2.1.0/leaflet.ajax.min.js"></script>
+<script src="https://unpkg.com/pouchdb@^5.2.0/dist/pouchdb.js"></script>
+<script src="https://unpkg.com/leaflet.tilelayer.pouchdbcached@latest/L.TileLayer.PouchDBCached.js"></script>
+<script src="https://mutsuyuki.github.io/Leaflet.SmoothWheelZoom/SmoothWheelZoom.js"></script>
+
+<style>
+    #maps {
+        height: 280px;
+    }
+
+    #map {
+        position: absolute;
+        top: 10px;
+        bottom: 10px;
+        right: 10px;
+        left: 10px;
+        height: 92%;
+        max-width: 98%;
+    }
+
+    .leaflet-top.leaflet-left {
+        bottom: 100px !important;
+        right: 20px !important;
+        left: unset;
+        top: unset;
+    }
+
+    .leaflet-top.leaflet-right {
+        right: unset;
+        left: 10px;
+    }
+    fieldset {
+        position: relative;
+    }
+
+    .legend {
+        line-height: 18px;
+        color: #555;
+    }
+
+    .legend i {
+        width: 18px;
+        height: 18px;
+        float: left;
+        margin-right: 8px;
+        opacity: 0.7;
+    }
+
+    .redIcon {
+        object-fit: cover;
+        height: auto !important;
+    }
+</style>
+
+<fieldset id="maps">
     <legend>Device Position</legend>
 
-    <style>
-        body,
-        html{
-            padding: 0;
-            margin: 0 auto;
-        }
-    
-        #map { 
-            position: absolute;
-    top: 20px;
-    bottom: 0;
-    right: 10px;
-    left: 10px;
-    width: 100%;
-    height: 38vh;
-    max-width: 98%;
-        }
-    
-        .leaflet-top.leaflet-left{
-            bottom: 100px !important;
-            right: 20px !important;
-            left: unset;
-            top: unset;
-        }
-        .leaflet-top.leaflet-right {
-            right: unset;
-            left: 10px;
-        }
-    </style>
-    
     <section id="wilayah">
         <div id='map'></div>
     </section>
-    
 </fieldset>
 
-
-<style>
-    fieldset{
-        position: relative;
-    }
-</style>
 <script>
     var geojson;
-    var map ;
-    
+    var map;
+
     // Set Mapbox and Style
     L.mapbox.accessToken = 'pk.eyJ1IjoibGFzaWRhIiwiYSI6ImNqcHV0dm5uNTBrcWszeGxnd2Z6enpyMm4ifQ.syGeQYzbXKZXw1KOi_iYTA';
-    var mapboxTiles = L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=' + L.mapbox.accessToken, {
-        attribution: '© <a href="https://www.mapbox.com/feedback/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        tileSize: 512,
-        zoomOffset: -1,
+    var mapboxTiles = L.tileLayer(
+        'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=' + L.mapbox
+        .accessToken, {
+            attribution: '© <a href="https://www.mapbox.com/feedback/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            tileSize: 512,
+            zoomOffset: -1,
             useCache: true,
             maxZoom: 18,
             crossOrigin: true
-    });
+        });
 
     // Set Map
     map = L.map('map', {
-        scrollWheelZoom: false, // disable original zoom function
-        smoothWheelZoom: true,  // enable smooth zoom 
-        smoothSensitivity: 1,   // zoom speed. default is 1
-    })
-    .addLayer(L.mapbox.styleLayer('mapbox://styles/lasida/ckjvkvrs70qsu17nzryshc46b'))
-    .setView([-6.171389, 106.640556], 12); // Set View
+            scrollWheelZoom: false, // disable original zoom function
+            smoothWheelZoom: true, // enable smooth zoom 
+            smoothSensitivity: 1, // zoom speed. default is 1
+        })
+        .addLayer(L.mapbox.styleLayer('mapbox://styles/lasida/ckjvkvrs70qsu17nzryshc46b'))
+        .setView([-6.171389, 106.640556], 12); // Set View
 
     // Shape File format GeoJSON
     // jQuery.getJSON("https://mapalabanten.org/wp-json/pkd/v1/maps/wilayah", function(data){   
-        // Add GeoJSON layer to the map once the file is loaded
-        // console.log( data );
-        // geojson = L.geoJson(data, {
-        //     style: style,
-        //     onEachFeature: onEachFeature
-        // }).addTo(map);  
+    // Add GeoJSON layer to the map once the file is loaded
+    // console.log( data );
+    // geojson = L.geoJson(data, {
+    //     style: style,
+    //     onEachFeature: onEachFeature
+    // }).addTo(map);  
 
-        render_mapala_marker(); // Call the Marker
+    render_marker(); // Call the Marker
     // });
 
-
-    async function render_mapala_marker() {
+    /**
+     * Getting Data : Maps Marker
+     * 
+     */
+    async function render_marker() {
         // const response = await fetch('https://mapalabanten.org/wp-json/pkd/v1/maps/marker');
         // const data = await response.json();
-     
-       
+
         // jQuery.each(data, function(i, item) { // Loop Location
         //     jQuery.each(item, function(i, org) { // Loop Item
-                // if( org.coordinate ){
-                    L.marker([-6.171389, 106.640556], {
-                        icon: L.icon({
-                        iconUrl: 'https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/120/docomo/205/large-red-circle_1f534.png',
-                        popupAnchor:  [15, 18],
-                        className: 'redIcon'
-                    })}).bindPopup( '<a href="">ECOV-001</a>' ).addTo(map);
+        // if( org.coordinate ){
+        // L.marker([-6.171389, 106.640556], {
+        //     icon: L.icon({
+        //         iconUrl: 'https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/120/docomo/205/large-red-circle_1f534.png',
+        //         popupAnchor: [15, 18],
+        //         className: 'redIcon'
+        //     })
+        // }).bindPopup('<a href="">ECOV-001</a>').addTo(map);
 
-                    L.marker([-6.147702, 106.621785], {
-                        icon: L.icon({
-                        iconUrl: 'https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/120/docomo/205/large-red-circle_1f534.png',
-                        popupAnchor:  [15, 18],
-                        className: 'redIcon'
-                    })}).bindPopup( '<a href="">ECOV-001</a>' ).addTo(map);
-                // }
-        //     });
-        // });
+        // L.marker([-6.147702, 106.621785], {
+        //     icon: L.icon({
+        //         iconUrl: 'https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/120/docomo/205/large-red-circle_1f534.png',
+        //         popupAnchor: [15, 18],
+        //         className: 'redIcon'
+        //     })
+        // }).bindPopup('<a href="">ECOV-001</a>').addTo(map);
+        // // }
+        // //     });
+        // // });
 
-        setIconSize();
+        // setIconSize();
     }
 
     // control that shows state info on hover
@@ -138,7 +156,7 @@
     };
 
     info.addTo(map);
-    map.on('zoomend', setIconSize); 
+    map.on('zoomend', setIconSize);
 
     // Dynamic Width relative based on Zoom
     function setIconSize(e) {
@@ -146,13 +164,13 @@
         var zoomLevel = map.getZoom();
         var x = zoomLevel * 4;
         var y = zoomLevel * 4;
-        var iconElements = document.getElementsByClassName('redIcon'); 
+        var iconElements = document.getElementsByClassName('redIcon');
         for (i = 0; i < iconElements.length; i++) {
             iconElements[i].style.width = Math.round(x) - 25 + 'px';
             iconElements[i].style.height = Math.round(y) - 25 + 'px';
         }
     };
-    
+
     function style(feature) {
         return {
             weight: 2,
@@ -227,35 +245,3 @@
 
     // legend.addTo(map);
 </script>
-
-<style>
-    /* .info {
-        padding: 6px 8px;
-        font: 14px/16px Arial, Helvetica, sans-serif;
-        background: white;
-        background: rgba(255,255,255,0.8);
-        box-shadow: 0 0 15px rgba(0,0,0,0.2);
-        border-radius: 5px;
-    }
-    .info h4 {
-        margin: 0 0 5px;
-        color: #777;
-    } */
-    .legend {
-        line-height: 18px;
-        color: #555;
-    }
-    .legend i {
-        width: 18px;
-        height: 18px;
-        float: left;
-        margin-right: 8px;
-        opacity: 0.7;
-    }
-
-    .redIcon{
-        object-fit:cover;
-        height: auto !important;
-    }
-</style>
-

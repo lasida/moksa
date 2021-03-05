@@ -20,7 +20,7 @@
         <div class="container">
             <header>
                 <div class="col col-7">
-                    <h1>Monitoring Dashboard</h1>
+                    <h1>Monitoring Server</h1>
                 </div>
                 <div class="col col-3">
                     <!-- <p>Async mode is: <b>{{ async_mode }}</b></p>
@@ -36,7 +36,7 @@
 
                 <div class="col col-7">
                     {% include "services/db.html" %}
-                    <!-- {% include "services/maps.html" %} -->
+                    {% include "services/maps.html" %}
                 </div>
         
                 <div class="col col-3">
@@ -97,30 +97,30 @@
                 // // round trip time is measured.
                 // var ping_pong_times = [];
                 // var start_time;
-                window.setInterval(function() {
-                    const url = SERVERNAME + '/v1/container/data';
+                // window.setInterval(function() {
+                //     const url = SERVERNAME + '/v1/container/data';
 
-                    fetch(url)
-                    .then((resp) => resp.json())
-                    .then(function(data) {
-                        $('#stream_db tbody tr').remove();
-                        data.forEach( function( item, index) {
-                            var rawImageUrl = data[index].vision_raw ? data[index].vision_raw : '/static/img/notfound.jpg';
-                            var estimationImageUrl = data[index].estimation_vision ? data[index].estimation_vision : '/static/img/notfound.jpg';
-                            var deviceName = item.name;
-                            var deviceBattery = item.battery;
-                            var deviceTimeStamp = item.timestamp;
-                            // var deviceCoordinate = item.coordinate;
-                            // var deviceVision = item.vision;
-                            $('#stream_db tbody').append('<tr raw="'+ rawImageUrl +'" estimation="'+ estimationImageUrl +'"><td>' + deviceName +'</td><td>'+ deviceBattery +'%</td><td>'+ deviceTimeStamp +'</td></tr>');
-                        });
+                //     fetch(url)
+                //     .then((resp) => resp.json())
+                //     .then(function(data) {
+                //         $('#stream_db tbody tr').remove();
+                //         data.forEach( function( item, index) {
+                //             var rawImageUrl = data[index].vision_raw ? data[index].vision_raw : '/static/img/notfound.jpg';
+                //             var estimationImageUrl = data[index].estimation_vision ? data[index].estimation_vision : '/static/img/notfound.jpg';
+                //             var deviceName = item.name;
+                //             var deviceBattery = item.battery;
+                //             var deviceTimeStamp = item.timestamp;
+                //             // var deviceCoordinate = item.coordinate;
+                //             // var deviceVision = item.vision;
+                //             $('#stream_db tbody').append('<tr raw="'+ rawImageUrl +'" estimation="'+ estimationImageUrl +'"><td>' + deviceName +'</td><td>'+ deviceBattery +'%</td><td>'+ deviceTimeStamp +'</td></tr>');
+                //         });
 
-                        escoca_get_lastest_data( data );
-                    })
-                    .catch(function(error) {
-                        console.log(error);
-                    });
-                }, 2000);
+                //         escoca_get_lastest_data( data );
+                //     })
+                //     .catch(function(error) {
+                //         console.log(error);
+                //     });
+                // }, 2000);
 
                 
 

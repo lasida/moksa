@@ -14,7 +14,7 @@ import time
 
 from helpers import *
 from database import Repository
-# from estimation import EstimationCapacity
+# from estimation import Estimation
 # from notification import Notification
 
 # Set this variable to "threading", "eventlet" or "gevent" to test the
@@ -36,7 +36,7 @@ devices = {
 }
 
 #-->  Registered User ( WA : Name )
-users = {
+stackholder = {
     '628561655028' : "Lasida"
 }
 
@@ -54,7 +54,7 @@ db = Repository()
 #Routing Root and Rendering Index ( SyncMode, Regstered Device )
 @app.route('/')
 def index():
-   return render_template('index.html', devices=devices)
+   return render_template('index.html', devices=devices, stackholder=stackholder)
 
 #----------------------------------- REST API -------------------------------------#
 
@@ -69,15 +69,15 @@ def container_status() :
     uptime  = request.json['uptime']
 
     # Validation, Check Device Chip Registered
-    # if device_chip in devices.keys(): 
+    # if chip in devices.keys(): 
     #     #Update Status Device
     #     socketio.emit('container_status', {
-    #         "chip"       : device_chip,
+    #         "chip"       : chip,
     #         "status"     : device_status,
     #         "runtime"    : device_runtime,
     #         "batt"       : device_battery,
     #     })
-    #     return devices[device_chip]
+    #     return devices[chip]
     # else: 
     #     return "Unregisterd Device"
 
@@ -123,8 +123,8 @@ def background_temp(duration, data):
             #     parts = data['parts'] if data.get('parts') else ""
             #     idpost = data['id'] if data.get('id') else ""
         parity = data['parity'] if data.get('parity') else ""
-            #     vision = data['vision'] if data.get('vision') else ""
-            #     index = data['index'] if data.get('index') else ""
+        vision = data['vision'] if data.get('vision') else ""
+        payloadID = data['id'] if data.get('id') else ""
 
             # except KeyError as error:
             #     return jsonify( { 'code' : 403, 'message' : 'Format invalid' } ), 200
@@ -132,31 +132,41 @@ def background_temp(duration, data):
         #--> Validation, Check Device Chip Registered
         if chip in devices.keys(): 
 
+            print( payloadID )
             if parity == "true":
-                print("b is greater than a")
+                # DB -> Getting All Data in Temps with ID 
+                datatemps = db.getTemp( {"id": payloadID } ) #123421414-123414
+                vision_temps = ""
+
+                #Combining VIsion Part
+                for document in datatemps:
+                    vision_temps += document['vision'] if document.get('vision') else ""
+  
+                vision_temps += vision
+
+                #Base64toImage -> UrlDecode -> Reconstruction
+                # imgstring = requests.utils.unquote(device_vision)
+                # imgdata = base64.b64decode(imgstring)
+
+                imgdata = base64.b64decode(vision_temps)
+                today = "kiwari"
+                timeNow = "now"
+
+                #-> Make Image
+                file_raw = "static/uploads/" + chip + '/' + str(today) + '/' + str(timeNow) + '-raw.jpg'
+                if not os.path.isdir( "static/uploads/" + chip + '/' + str(today) + '/'  ) : 
+                    os.makedirs( "static/uploads/" + chip + '/' + str(today) + '/' , 755, exist_ok=True)
+                    
+                #--> Make File
+                with open(file_raw, 'wb') as f:
+                    f.write(imgdata)
+
+                db.removeTemps( {"id": payloadID } )
             else:
                 db.pushTemp(json.dumps(data))
 
-            # if : 
-            #     # Getting Partial Data
-            #     # Combine Data
-            #     # Removing Data in Temps
-            #     # Saving Data in Device
-            # else:
-            #    
-        
-            #Base64toImage -> UrlDecode -> Reconstruction
-            # imgstring = requests.utils.unquote(device_vision)
-            # imgdata = base64.b64decode(imgstring)
 
-            # -> Make Dirs Uploads
-            # file_raw = "static/uploads/" + device_chip + '/' + str(today) + '/' + str(timeNow) + '-raw.jpg'
-            # if not os.path.isdir( "static/uploads/" + device_chip + '/' + str(today) + '/'  ) : 
-            #     os.makedirs( "static/uploads/" + device_chip + '/' + str(today) + '/' , 755, exist_ok=True)
-                
-            #--> Make File
-            # with open(file_raw, 'wb') as f:
-            #     f.write(imgdata)
+
 
             # -------------------------- OPENCV -------------------------- #
 
@@ -181,10 +191,10 @@ def background_temp(duration, data):
 
             # cv2.putText(binary, "{}{}{}".format('Kapasitas : ', percentage, '%'), (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (60,80,20), 2, cv2.LINE_AA)
 
-            # if not os.path.isdir( "static/results/" + device_chip + '/' + str(today) + '/'  ) : 
-            #     os.makedirs( "static/results/" + device_chip + '/' + str(today) + '/' , 755, exist_ok=True)
+            # if not os.path.isdir( "static/results/" + chip + '/' + str(today) + '/'  ) : 
+            #     os.makedirs( "static/results/" + chip + '/' + str(today) + '/' , 755, exist_ok=True)
             
-            # file_res = "static/results/" + device_chip + '/' + str(today) + '/' + str(timeNow) + '-est.jpg'
+            # file_res = "static/results/" + chip + '/' + str(today) + '/' + str(timeNow) + '-est.jpg'
             # cv2.imwrite(file_res, binary) 
 
             # -------------------------- OPENCV -------------------------- #
@@ -195,7 +205,7 @@ def background_temp(duration, data):
             # listMonths = [ "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
             # notify = Notification( 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjEsImlhdCI6MTYxMDUyNTUwNCwiZXhwIjoxNjQyMDgzMTA0fQ.aj0_J2rebO0IvKipMaNvzb29UiyE4m9gYqvqTFmACCg', 'fc5199d9-0b2e-40d0-b7c1-4d31ae8fb6b7' )
             # # notify.send_text( "628561655028", "EVOC - Estimation Volume Container")
-            # notify.send_media( "628561655028", "EVOC -- " + devices[device_chip] + 
+            # notify.send_media( "628561655028", "EVOC -- " + devices[chip] + 
             # "\nKapasitas : 80%\nKordinat: " + device_coordinate + 
             # "\nBaterai : " + device_battery + "%" +
             # "\nTanggal : " + timeWIB(datetime.now()).strftime("%d") + " " +  listMonths[int(timeWIB(datetime.now()).strftime("%m")) -1 ]  + " " + timeWIB(datetime.now()).strftime("%Y") + " " + local_dt.now().strftime("%H:%M:%S") +
@@ -207,15 +217,15 @@ def background_temp(duration, data):
 
             # -------------------------- JSON RESULTS -------------------------- #
             # deviceData = {
-            #     "chip"                  : device_chip,
-            #     "name"                  : devices[device_chip],
+            #     "chip"                  : chip,
+            #     "name"                  : devices[chip],
             #     "coordinate"            : device_coordinate,
             #     "maps"                  : "https://www.google.com/maps/search/" + device_coordinate,
             #     "battery"               : int(device_battery),
             #     "mode"                  : str(device_mode),
             #     "vision"                : "OK" if device_vision else "ERROR",
-            #     "vision_raw"            : SERVERNAME + "static/uploads/" + device_chip + "/" + str(today) + "/" + str(timeNow) + "-raw.jpg",
-            #     "estimation_vision"     :  SERVERNAME + "static/results/" + device_chip + "/" + str(today) + "/" + str(timeNow) + "-est.jpg",
+            #     "vision_raw"            : SERVERNAME + "static/uploads/" + chip + "/" + str(today) + "/" + str(timeNow) + "-raw.jpg",
+            #     "estimation_vision"     :  SERVERNAME + "static/results/" + chip + "/" + str(today) + "/" + str(timeNow) + "-est.jpg",
             #     "estimation_value"      : percentage,
             #     "date"                  : today,
             #     "time"                  : timeNow,

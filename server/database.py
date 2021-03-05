@@ -53,6 +53,10 @@ class Repository:
     else:
       return FALSE
 
+  def removeTemps( self, item ):
+    result = self.db.temps.delete_many( item )
+    return result
+
   def get( self, item ):
     result = self.db.devices.find_one( item )
     return result
@@ -66,6 +70,11 @@ class Repository:
         return gotdata
     except IndexError:
         gotdata = 'null'
+
+        
+  def getTemp( self, item ):
+    result = list(self.db.temps.find( item ))
+    return result
 
   def get_all( self ):
     array = list(self.db.devices.find().sort("timestamp", -1 ))
