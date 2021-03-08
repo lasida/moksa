@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ID">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Monitoring Kontainer Sampah</title>
+        <link rel="shortcut icon" type="image/jpg" href="{{ url_for('static', filename='img/favicon.ico') }}"/>
+
+        <!-- Enquene Style -->
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/screen.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+        <!-- Enquene Script -->
+        <script src="{{ url_for('static', filename='js/jquery.min.js') }}" ></script>
+        <script src="{{ url_for('static', filename='js/socket.io.js') }}" ></script>
+        <script src="{{ url_for('static', filename='js/jquery.timeago.js') }}" ></script>
+        <script src="{{ url_for('static', filename='js/leaflet.js') }}" ></script>
+    </head>
+
+    <body>
+        <div class="container">
+            <header>
+                <div class="col col-7">
+                    <h1>Monitoring Server</h1>
+                </div>
+                <div class="col col-3">
+                    <p>Async mode is: <b>{{ async_mode }}</b></p>
+                    <p>Average Latency: <b><span id="ping-pong"></span>ms</b></p>
+                </div>
+            </header>
+
+            <div class="row">
+                <div class="col col-3">
+                    {% include "services/devices.html" %}
+                    {% include "services/notification.html" %}
+                </div>
+
+                <div class="col col-7">
+                    {% include "services/db.html" %}
+                    {% include "services/maps.html" %}
+                </div>
+        
+                <div class="col col-3">
+                    <!-- Call Estimation Template -->
+                    {% include "services/estimation.html" %}
+                </div>
+            </div>
+        </div>
+
+        <script type="text/javascript" charset="utf-8">
+            // Interactive
+            $(document).on( "click", "#stream_db tr", function() {
+                $('#device-raw').attr( 'src', $(this).attr('raw') );
+                $('#device-estimation').attr( 'src', $(this).attr('estimation') );
+            });
+
+            function capitalizeFirstLetter(string) {
+                return string.charAt(0).toUpperCase() + string.slice(1);
+            }
+
+ 
+
+            $(document).ready(function() {
+                var socket = io();
+                // SERVERNAME = 'http://127.0.0.1:3000'
+                SERVERNAME = 'http://escoca.ap-1.evennode.com'
+
+                // Socket Connect
+                socket.on('connect', function() {
+                    // socket.emit('my_event', {data: 'I\'m connected!'});
+                    console.log("Socket Connected !!!");
+                });
+
+                var ping_pong_times = [];
+                var start_time;
+                window.setInterval(function() {
+                    start_time = (new Date).getTime();
+                    socket.emit('my_ping');
+                    socket.emit('refresh_data');
+                }, 10000);
+
+                socket.on('my_pong', function() {
+                var latency = (new Date).getTime() - start_time;
+                    ping_pong_times.push(latency);
+                    ping_pong_times = ping_pong_times.slice(-30); // keep last 30 samples
+                    var sum = 0;
+                    for (var i = 0; i < ping_pong_times.length; i++)
+                        sum += ping_pong_times[i];
+                    $('#ping-pong').text(Math.round(10 * sum / ping_pong_times.length) / 10);
+                });
+
+                // Displaying Device Status
+                socket.on('latest_estimation', function( data, cb ){
+                    if( data == undefined ){
+                        $( '#device-raw' ).attr('src', "static/img/notfound.jpg" );
+                        $( '#device-estimation' ).attr('src', "static/img/notfound.jpg" );
+
+                        $( '#device-capacity' ).text( "0" );
+                        $( '#device-battery' ).text( "0"  );
+                        $( '#device-coordinate' ).text( "-" );
+                        $( '#device-mode' ).text( "-");
+                        $( '#device-time' ).text( "-");
+
+                    }else{
+                        $( '#device-raw' ).attr('src', data.raw );
+                        $( '#device-estimation' ).attr('src', data.estimation );
+
+                        $( '#device-capacity' ).text( data.capacity + "%" );
+                        $( '#device-battery' ).text( data.battery + "%" );
+                        $( '#device-coordinate' ).html( '<a href="'+ data.maps +'" target="_blank">' + data.coordinate + '</a>' );
+                        $( '#device-mode' ).text( capitalizeFirstLetter( data.mode ) );
+                        $( '#device-time' ).text( data.timestamp );
+
+
+                        // Rendering Marker
+                        L.marker(data.coordinate.split(","), {
+                            icon: L.icon({
+                                iconUrl: 'https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/120/docomo/205/large-red-circle_1f534.png',
+                                popupAnchor: [15, 18],
+                                className: 'redIcon'
+                            })
+                        }).bindPopup('<a href="">' + data.name +'</a>').addTo(map);
+                        setIconSize();
+                        centerLeafletMapOnMarker( map, data.coordinate.split(",") );
+
+
+                        setTimeout(function(){ 
+                            $(".leaflet-marker-icon").remove();
+                            $(".leaflet-popup").remove();
+                            map.setView([-6.171389, 106.640556], 11);
+                        }, 5000);
+                    }
+                 });
+
+                // Displaying Device Status
+                socket.on('device_status', function( data, cb ){
+                    $( '#' + data.chip ).addClass('on');
+                    $( '#' + data.chip + ' .uptime' ).text( data.uptime + 's');
+                    $( '#' + data.chip + ' .batt' ).text( data.batt + '%' );
+                    $( '#' + data.chip + ' .status' ).text( capitalizeFirstLetter( data.status ) );
+                    setTimeout(function(){ 
+                        $( '#' + data.chip ).removeClass('on');
+                        $("td.uptime, td.batt, td.status").text("-");
+                    }, 5000);
+                });
+
+                socket.on('notification_status', function( data, cb ){
+                    $( '#notification #' + data.chip + ' .status' ).text('Sent');
+                    // setTimeout(function(){ 
+                    //     $( '#' + data.chip ).removeClass('on');
+                    //     $("td.uptime, td.batt, td.status").text("-");
+                    // }, 5000);
+                });
+                
+
+
+                socket.on('refresh_data', function( data, cb ){
+
+                    if( data.length == 0 ){
+                        $('#stream_db tbody tr').remove();
+                    }else{
+                        let latestRaw = ( data[0].vision_raw ) ? data[0].vision_raw : '/static/img/notfound.jpg';
+                        let latestEstimation = ( data[0].estimation_vision ) ? data[0].estimation_vision : '/static/img/notfound.jpg';
+                        let latestCapacity = data[0].estimation_value ? data[0].estimation_value : 0;
+                        let latestBattery = data[0].battery ? data[0].battery : 0;
+                        let latestCoordinate = data[0].coordinate ?  data[0].coordinate : '-';
+                        let latestMode = data[0].mode ? data[0].mode : '-';
+                        let latestTime = data[0].timeago ? data[0].timeago : '-';
+    
+    
+                        $('#stream_db tbody tr').remove();
+                        data.forEach( function( item, index) {
+                            var rawImageUrl = data[index].vision_raw ? data[index].vision_raw : '/static/img/notfound.jpg';
+                            var estimationImageUrl = data[index].estimation_vision ? data[index].estimation_vision : '/static/img/notfound.jpg';
+                            var deviceName = item.name;
+                            var deviceBattery = item.battery;
+                            var deviceTimeStamp = item.timestamp;
+                            // var deviceCoordinate = item.coordinate;
+                            // var deviceVision = item.vision;
+                            $('#stream_db tbody').append('<tr raw="'+ rawImageUrl +'" estimation="'+ estimationImageUrl +'"><td>' + deviceName +'</td><td>'+ deviceBattery +'%</td><td><time class="timeago" datetime="'+ deviceTimeStamp +'">'+ deviceTimeStamp +'</time></td></tr>');
+                        });
+                        $("time.timeago").timeago();
+                    }
+
+                    
+                });
+
+                // Socket Counter
+                // socket.on('ecov_counter', function(msg, cb) {
+                //     // $('h1').text(msg);
+                //     // if (cb)
+                //     //     cb();
+                // });
+
+                // Handlers for the different forms in the page.
+                // These accept data from the user and send it to the server in a
+                // variety of ways
+                // $('form#emit').submit(function(event) {
+                //     socket.emit('my_event', {data: $('#emit_data').val()});
+                //     return false;
+                // });
+                // $('form#broadcast').submit(function(event) {
+                //     socket.emit('my_broadcast_event', {data: $('#broadcast_data').val()});
+                //     return false;
+                // });
+                // $('form#join').submit(function(event) {
+                //     socket.emit('join', {room: $('#join_room').val()});
+                //     return false;
+                // });
+                // $('form#leave').submit(function(event) {
+                //     socket.emit('leave', {room: $('#leave_room').val()});
+                //     return false;
+                // });
+                // $('form#send_room').submit(function(event) {
+                //     socket.emit('my_room_event', {room: $('#room_name').val(), data: $('#room_data').val()});
+                //     return false;
+                // });
+                // $('form#close').submit(function(event) {
+                //     socket.emit('close_room', {room: $('#close_room').val()});
+                //     return false;
+                // });
+                // $('form#disconnect').submit(function(event) {
+                //     socket.emit('disconnect_request');
+                //     return false;
+                // });
+            });
+        </script>
+
+	</body>
+</html>

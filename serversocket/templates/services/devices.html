@@ -1,0 +1,36 @@
+<fieldset id="devices">
+    <legend>Devices Status</legend>
+    <div class="grid">
+        <div class="grid-container">
+            <table>
+                <thead>
+                    <tr class="header">
+                        <th>
+                            Device
+                        </th>
+                        <th>
+                            Uptime
+                        </th>
+                        <th>
+                            Battery
+                        </th>
+                        <th>
+                            Status
+                        </th>
+
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for device in devices %}
+                    <tr id="{{device}}">
+                        <td>{{devices[device]}}</td>
+                        <td class="uptime">-</td>
+                        <td class="batt">-</td>
+                        <td class="status">-</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</fieldset>

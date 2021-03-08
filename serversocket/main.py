@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
-# from flask_socketio import SocketIO, emit, join_room, leave_room, close_room, rooms, disconnect
 from threading import Lock, Thread
 from flask import Flask, render_template, jsonify, session, request, copy_current_request_context, current_app
+from flask_socketio import SocketIO, emit, join_room, leave_room, close_room, rooms, disconnect
 from datetime import datetime
+from bson import json_util, ObjectId
 
 import base64
 import requests
@@ -19,7 +20,7 @@ from database import Repository
 # Set this variable to "threading", "eventlet" or "gevent" to test the
 # different async modes, or leave it set to None for the application to choose
 # the best option based on installed packages.
-# async_mode = None
+async_mode = None
 
 # ---------------------- Define Constants ------------------------
 SERVERNAME = 'http://127.0.0.1:3000/'
@@ -43,6 +44,12 @@ app.config['SECRET_KEY'] = 'secreto!'
 app.config["DEBUG"] = True
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
+
+# -->  Socket IO
+socketio = SocketIO(app, async_mode=async_mode)
+thread = None
+thread_lock = Lock()
+
 # --> Object Initiate Database
 db = Repository()
 
@@ -51,15 +58,55 @@ db = Repository()
 
 @app.route('/')
 def index():
-    return render_template('index.html', devices=devices, stackholder=stackholder)
+    #Startup Data
 
+    return render_template('index.html', async_mode=socketio.async_mode, devices=devices, stackholder=stackholder)
+
+
+def parse_json(data):
+    return json.loads(json_util.dumps(data))
 
 def isset( data, key, typedata = "str" ):
     if typedata == "str":
         return str(data[key]) if data.get(key) else ""
     else:
         return int(data[key]) if data.get(key) else 0
-# ---> END
+
+#---------------------- SOCKET
+
+#Send Ping
+@socketio.event
+def my_ping():
+    socketio.emit('my_pong')
+    print("PINGPONG")
+
+@socketio.event
+def refresh_data():
+    socketio.emit('refresh_data', parse_json(db.get_all()) )
+    socketio.emit('latest_estimation', parse_json(db.get_latest()) )
+    print("Auto Refresh Data 10s")
+    
+# OnOnnect
+@socketio.event
+def connect():
+    global thread
+    with thread_lock:
+        if thread is None:
+            socketio.sleep(1)
+            socketio.emit('latest_estimation', parse_json(db.get_latest()) )
+            socketio.emit('refresh_data', parse_json(db.get_all()) )
+            # thread = socketio.start_background_task(background_thread)
+        
+
+#SocketIO Server to Client
+# def background_thread():
+#     """Server to Client Sender sleep every 5s."""
+#     count = 0
+#     while True:
+#         socketio.sleep(2)
+#         count += 1
+#         socketio.emit('ecov_counter', count)
+
 
 #----------------------------------- REST API -------------------------------------#
 
@@ -83,13 +130,13 @@ def device_status() :
     # Check Device Chip Registered
     if chip in devices.keys():
         #Update Status Device
-
-        # socketio.emit('container_status', {
-        #     "chip"       : chip,
-        #     "status"     : device_status,
-        #     "runtime"    : device_runtime,
-        #     "batt"       : device_battery,
-        # })
+        print("Emtting Status")
+        socketio.emit('device_status', {
+            "chip"       : chip,
+            "status"     : status,
+            "uptime"     : uptime,
+            "batt"       : battery,
+        })
 
         return "Status Updated " + devices[chip]
     else:
@@ -124,6 +171,7 @@ def background_temps(duration, data):
         mode = isset( data, "mode" )
         parts = isset( data, "parts" , "int")
         length = isset( data, "length", "int")
+        uptime = isset( data, "uptime", "int" )
 
         vision = isset( data, "vision" )
         index = isset( data, "index", "int")
@@ -140,14 +188,15 @@ def background_temps(duration, data):
                 datatemps = db.getTemps({"id": payloadID})
 
                 # Combining VIsion Part
+                visionTemps = ""
                 for document in datatemps:
                     visionTemps += document['vision'] if document.get('vision') else ""
 
                 # Document Temps + Parity Vision
                 visionTemps += vision
 
-                today = convert_time_to_wib(datetime.today().strftime("%Y%m%d"))
-                now = convert_time_to_wib(datetime.now().strftime('%H%M%S'))
+                today = convert_time_to_wib(datetime.today(), "%Y%m%d" )
+                now = convert_time_to_wib(datetime.now(), '%H%M%S' )
 
                 # Base64toImage -> UrlDecode -> Reconstruction
                 visionTemps = requests.utils.unquote(visionTemps)
@@ -208,6 +257,7 @@ def background_temps(duration, data):
                     # "\nTanggal : " + timeWIB(datetime.now()).strftime("%d") + " " +  listMonths[int(timeWIB(datetime.now()).strftime("%m")) -1 ]  + " " + timeWIB(datetime.now()).strftime("%Y") + " " + local_dt.now().strftime("%H:%M:%S") +
                     # "\nMaps : " + 'https://www.google.com/maps/search/' + device_coordinate, HOSTNAME_URL + estimation_result.getFilename(), "image")
                     # estimationResult = int(estimation_result.getEstimation())
+                    #  socketio.emit('notification_status', parse_json(db.get_all()) )
                     ## SOCKET PUSH
                     # -------------------------- NOTIFICATION -------------------------- #
 
@@ -236,11 +286,15 @@ def background_temps(duration, data):
 
 
                 # -------------------------- SOCKET PUSH -------------------------- #
-                ## to Stream Endpoint
-                ## Device POsition
-                ## Device Status Sleep
-                ## Capacity Estimation
 
+                socketio.emit('latest_estimation', parse_json(db.get_latest()) )
+                socketio.emit('refresh_data', parse_json(db.get_all()) )
+                socketio.emit('device_status', {
+                    "chip"       : chip,
+                    "status"     : "sleep",
+                    "uptime"     : uptime,
+                    "batt"       : battery,
+                })
                 # -------------------------- SOCKET PUSH -------------------------- #
 
                 # db.removeTemps({"id": payloadID})
@@ -270,6 +324,6 @@ def background_temps(duration, data):
 #-----------------------------------  Main -------------------------------------#
 if __name__ == "__main__":
     app.config['TEMPLATES_AUTO_RELOAD'] = True
-    app.run(debug=True)
+    # app.run(debug=True)
     # app.run(host='0.0.0.0', port=3000, threaded=True, debug=True)
-    # socketio.run(app, host='0.0.0.0', port=3000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=3000, debug=True)
