@@ -22,5 +22,8 @@
 0.0.6 - 08 March 2021
 + Add : Estimation Class OpenCV
 + Fix : Device Status REST API
-+ Add : Startup Data for Display ...ongoing
++ Add : Startup Data for Display
 + Add : WebSocket
+
+0.0.7 - 09 March 2021
++ Fix : Notification

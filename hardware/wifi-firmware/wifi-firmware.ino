@@ -188,9 +188,8 @@ void setup()
  
   // GPIO Setup
   pinMode(GPIO_FLASH, OUTPUT);
-  pinMode(BUTTON_PIN_BITMASK, INPUT_PULLUP); 
+  //pinMode(BUTTON_PIN_BITMASK, INPUT_PULLUP); 
 
-  esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK,ESP_EXT1_WAKEUP_ANY_HIGH);
   // ----- LED BLINK 10 Times ----- //
   ledcSetup(0, 5000, 13);
   ledcAttachPin(GPIO_LED, 0);
@@ -222,6 +221,7 @@ void setup()
   Serial.println("ESP32 :: " + String(chipid) +" Setup Done !!!");
 
   //Print the wakeup reason for ESP32
+  //esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK,ESP_EXT1_WAKEUP_ANY_HIGH);
   print_wakeup_reason();
 }
 
@@ -242,7 +242,7 @@ void loop(){
   }else{
       //timeToSleep = getTimeLeft( timetoDecimal(device_timenow));
       //Serial.print( "Time to Decimal : " ); Serial.print( timeToSleep ); Serial.println( "s" ); 
-     timeToSleep = 300; // 5 minutes
+    timeToSleep = 300; // 5 minutes
     
     if( getCameraPicture() ){
       setupSleep(timeToSleep);
@@ -390,7 +390,7 @@ void setupCamera(){
   }
 
   sensor_t * s = esp_camera_sensor_get();
-  s->set_vflip(s, 0); // 0 = disable , 1 = enable
+  s->set_vflip(s, 1); // 0 = disable , 1 = enable
 }
 
 int errCount = 0;
@@ -438,43 +438,45 @@ bool getCameraPicture(){
   int Index;
   int cIndex = 0;
   for (Index = 0; Index < base64Image.length(); Index = Index+5000) {
-      // Populate JSON
-      Serial.print("ESP32 :: POST PARTIAL...");
-      String chunkVision = base64Image.substring(Index, Index+5000);
-      using SpiRamJsonDocument = BasicJsonDocument<SpiRamAllocator>;
-      SpiRamJsonDocument doc(1048576);
-      doc["id"]= payloadID;
+    // Populate JSON
+    Serial.print("ESP32 :: POST PARTIAL...");
+    String chunkVision = base64Image.substring(Index, Index+5000);
+    using SpiRamJsonDocument = BasicJsonDocument<SpiRamAllocator>;
+    SpiRamJsonDocument doc(1048576);
+    doc["id"]= payloadID;
+    doc["chip"] = String(chipid);
+    doc["vision"] = chunkVision;
+    doc["index"] = cIndex;
+      
+    if( cIndex == parts ){
+      doc["parity"] = "true";
       doc["chip"] = String(chipid);
-      doc["vision"] = chunkVision;
-      doc["index"] = cIndex;
-      if( cIndex == parts ){
-        doc["parity"] = "true";
-        doc["chip"] = String(chipid);
-        doc["lat"]  = "-6.52151";
-        doc["long"] = "105.52151";
-        doc["batt"] = "100";
-        doc["mode"] = "charge";
-        doc["length"] = base64Image.length();
-        doc["parts"] = parts;
-      }
-      doc["chunksize"] = chunkVision.length();
-      serializeJson(doc, jsonVision);  
-      Serial.println("... OK");
+      doc["lat"]  = "-6.52151";
+      doc["long"] = "105.52151";
+      doc["batt"] = "100";
+      doc["mode"] = "charge";
+      doc["length"] = base64Image.length();
+      doc["parts"] = parts;
+      delay(1000);
+    }
+    doc["chunksize"] = chunkVision.length();
+      
+    serializeJson(doc, jsonVision);  
+    Serial.println("... OK");
 
-      Serial.print("Length Image : "); Serial.println( base64Image.length());
+    Serial.print("Length Image : "); Serial.println( base64Image.length());
 
-      // Sending Payload
-      Serial.print("ESP32 :: Sending Payload...");
-      bool rstatus = ESP32_POST_HTTP( "http://webhook.site/ef5e531d-48bd-4517-8d78-61137ff2040e", jsonVision );
-      if( rstatus ){
-        Serial.println("....OK");
-      }else{
-        Serial.println("....Failed");
-//      return false;
-        errCount++;
-      }
-      cIndex++;
-      delay(50);
+    // Sending Payload
+    Serial.print("ESP32 :: Sending Payload...");
+    bool rstatus = ESP32_POST_HTTP( "http://como.ap-1.evennode.com/v1/device/data", jsonVision );
+    if( rstatus ){
+      Serial.println("....OK");
+    }else{
+      Serial.println("....Failed");
+      errCount++;
+    }
+    cIndex++;
+    delay(50);
   }
 
   // Reset JSON Char
@@ -496,7 +498,7 @@ bool getCameraPicture(){
 //--------------------------------- WIFI HTTP POST ---------------------------------//
 bool ESP32_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
 {   
-//  btStop();
+  //  btStop();
   
   // WIfi Connected -> Send Data to Server
   if(WiFi.status()== WL_CONNECTED){
@@ -512,7 +514,6 @@ bool ESP32_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
     http.addHeader("Content-Length", String(sizeof(jsonVision)) );
     int httpCode = http.POST(JsonDoc);
 
-    
     if( httpCode == 0 || httpCode > 0 ){
       String response = http.getString(); 
       Serial.print("HTTP CODE : ");
@@ -533,8 +534,7 @@ bool ESP32_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
     }
 
     http.end();
-//    memset(JsonDoc, 0, sizeof(JsonDoc));
-    
+
     unsigned long end = micros();
     unsigned long delta = end - start;
     Serial.print( "WIFI : Sent Time :: "); Serial.print( int(delta / 1000 / 60 / 60)); Serial.println("s");

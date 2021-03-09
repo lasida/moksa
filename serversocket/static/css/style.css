@@ -146,7 +146,7 @@ fieldset {
     font-weight: 600;
     height: 100%;
     margin: 0;
-    width: 315px;
+    /* width: 315px; */
     padding: 10px;
 }
 

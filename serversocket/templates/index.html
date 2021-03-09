@@ -23,9 +23,10 @@
                 <div class="col col-7">
                     <h1>Monitoring Server</h1>
                 </div>
-                <div class="col col-3">
+                <div class="col col-3" >
                     <p>Async mode is: <b>{{ async_mode }}</b></p>
                     <p>Average Latency: <b><span id="ping-pong"></span>ms</b></p>
+                    <p>REST API : <strong id="inforest">Waiting</strong></p>
                 </div>
             </header>
 
@@ -36,8 +37,8 @@
                 </div>
 
                 <div class="col col-7">
-                    {% include "services/db.html" %}
                     {% include "services/maps.html" %}
+                    {% include "services/db.html" %}
                 </div>
         
                 <div class="col col-3">
@@ -49,10 +50,10 @@
 
         <script type="text/javascript" charset="utf-8">
             // Interactive
-            $(document).on( "click", "#stream_db tr", function() {
-                $('#device-raw').attr( 'src', $(this).attr('raw') );
-                $('#device-estimation').attr( 'src', $(this).attr('estimation') );
-            });
+            // $(document).on( "click", "#stream_db tr", function() {
+            //     $('#device-raw').attr( 'src', $(this).attr('raw') );
+            //     $('#device-estimation').attr( 'src', $(this).attr('estimation') );
+            // });
 
             function capitalizeFirstLetter(string) {
                 return string.charAt(0).toUpperCase() + string.slice(1);
@@ -63,7 +64,7 @@
             $(document).ready(function() {
                 var socket = io();
                 // SERVERNAME = 'http://127.0.0.1:3000'
-                SERVERNAME = 'http://escoca.ap-1.evennode.com'
+                SERVERNAME = 'http://como.ap-1.evennode.com'
 
                 // Socket Connect
                 socket.on('connect', function() {
@@ -79,18 +80,24 @@
                     socket.emit('refresh_data');
                 }, 10000);
 
-                socket.on('my_pong', function() {
-                var latency = (new Date).getTime() - start_time;
-                    ping_pong_times.push(latency);
-                    ping_pong_times = ping_pong_times.slice(-30); // keep last 30 samples
-                    var sum = 0;
-                    for (var i = 0; i < ping_pong_times.length; i++)
-                        sum += ping_pong_times[i];
-                    $('#ping-pong').text(Math.round(10 * sum / ping_pong_times.length) / 10);
+                socket.on('my_pong', function() 
+                {
+                    var latency = (new Date).getTime() - start_time;
+
+                    if( !isNaN( latency ) ){
+                        ping_pong_times.push(latency);
+                        ping_pong_times = ping_pong_times.slice(-30); // keep last 30 samples
+                        var sum = 0;
+                        for (var i = 0; i < ping_pong_times.length; i++)
+                            sum += ping_pong_times[i];
+
+                        $('#ping-pong').text(Math.round( parseFloat( 10 * sum / ping_pong_times.length) / 10 ));
+                    }
                 });
 
                 // Displaying Device Status
                 socket.on('latest_estimation', function( data, cb ){
+                    console.log(data)
                     if( data == undefined ){
                         $( '#device-raw' ).attr('src', "static/img/notfound.jpg" );
                         $( '#device-estimation' ).attr('src', "static/img/notfound.jpg" );
@@ -100,8 +107,8 @@
                         $( '#device-coordinate' ).text( "-" );
                         $( '#device-mode' ).text( "-");
                         $( '#device-time' ).text( "-");
-
                     }else{
+                        // Capacity Estimation
                         $( '#device-raw' ).attr('src', data.raw );
                         $( '#device-estimation' ).attr('src', data.estimation );
 
@@ -185,44 +192,16 @@
                     
                 });
 
+            
                 // Socket Counter
-                // socket.on('ecov_counter', function(msg, cb) {
-                //     // $('h1').text(msg);
-                //     // if (cb)
-                //     //     cb();
-                // });
+                socket.on('incoming_data', function( data , cb) {
+                    $("#inforest").text( data );
+                    console.log( data );
 
-                // Handlers for the different forms in the page.
-                // These accept data from the user and send it to the server in a
-                // variety of ways
-                // $('form#emit').submit(function(event) {
-                //     socket.emit('my_event', {data: $('#emit_data').val()});
-                //     return false;
-                // });
-                // $('form#broadcast').submit(function(event) {
-                //     socket.emit('my_broadcast_event', {data: $('#broadcast_data').val()});
-                //     return false;
-                // });
-                // $('form#join').submit(function(event) {
-                //     socket.emit('join', {room: $('#join_room').val()});
-                //     return false;
-                // });
-                // $('form#leave').submit(function(event) {
-                //     socket.emit('leave', {room: $('#leave_room').val()});
-                //     return false;
-                // });
-                // $('form#send_room').submit(function(event) {
-                //     socket.emit('my_room_event', {room: $('#room_name').val(), data: $('#room_data').val()});
-                //     return false;
-                // });
-                // $('form#close').submit(function(event) {
-                //     socket.emit('close_room', {room: $('#close_room').val()});
-                //     return false;
-                // });
-                // $('form#disconnect').submit(function(event) {
-                //     socket.emit('disconnect_request');
-                //     return false;
-                // });
+                    setTimeout(function(){ 
+                        $("#inforest").text("Waiting");
+                    }, 4000);
+                });
             });
         </script>
 

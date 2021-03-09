@@ -15,7 +15,7 @@ import cv2
 from helpers import *
 from database import Repository
 # from estimation import Estimation
-# from notification import Notification
+from notification import Notification
 
 # Set this variable to "threading", "eventlet" or "gevent" to test the
 # different async modes, or leave it set to None for the application to choose
@@ -23,8 +23,8 @@ from database import Repository
 async_mode = None
 
 # ---------------------- Define Constants ------------------------
-SERVERNAME = 'http://127.0.0.1:3000/'
-# SERVERNAME = 'http://escoca.ap-1.evennode.com/'
+# SERVERNAME = 'http://127.0.0.1:3000/'
+SERVERNAME = 'http://como.ap-1.evennode.com/'
 
 # --> Registerd Device ( chipID : name )
 devices = {
@@ -59,7 +59,6 @@ db = Repository()
 @app.route('/')
 def index():
     #Startup Data
-
     return render_template('index.html', async_mode=socketio.async_mode, devices=devices, stackholder=stackholder)
 
 
@@ -210,43 +209,48 @@ def background_temps(duration, data):
                     os.makedirs("static/uploads/" + chip + '/' + today + '/', 755, exist_ok=True)
 
                 # --> Saving Image to File
-                with open(filePath, 'wb') as f:
+                # os.chmod(filePath, 0o777)
+                with open(filePath, 'w+') as f:
                     f.write(imageTemps)
+                    
                 # -------------------------- Combining Part and Save Raw Image -------------------------- #
 
+                
+                if os.path.isfile(filePath):
+                    # -------------------------- OPENCV -------------------------- #
+                    # Read Image
+                    raw = cv2.imread(filePath)
 
-                # -------------------------- OPENCV -------------------------- #
-                # Read Image
-                raw = cv2.imread(filePath)
+                    # Convert RGB to GRAYSCALE
+                    colorspace = cv2.cvtColor(raw, cv2.COLOR_RGB2GRAY)
 
-                # Convert RGB to GRAYSCALE
-                colorspace = cv2.cvtColor(raw, cv2.COLOR_RGB2GRAY)
+                    # Segmentation using Threshold
+                    _, binary = cv2.threshold(colorspace, 30, 255, cv2.THRESH_BINARY_INV)
 
-                # Segmentation using Threshold
-                _, binary = cv2.threshold(colorspace, 30, 255, cv2.THRESH_BINARY_INV)
+                    imageWidth = binary.shape[0] #width
+                    imageHeight = binary.shape[1] #height
+                    imageResolution = imageWidth * imageHeight
 
-                imageWidth = binary.shape[0] #width
-                imageHeight = binary.shape[1] #height
-                imageResolution = imageWidth * imageHeight
+                    blackPixel = imageResolution - cv2.countNonZero(binary)
 
-                blackPixel = imageResolution - cv2.countNonZero(binary)
+                    # Counting Persentage
+                    percentage = blackPixel/imageResolution * 100
+                    capacity = round(percentage, 0)
 
-                # Counting Persentage
-                percentage = blackPixel/imageResolution * 100
-                capacity = round(percentage, 0)
+                    cv2.putText(binary, "{}{}{}".format('Kapasitas : ', capacity, '%'), (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (60, 80, 20), 2, cv2.LINE_AA)
 
-                cv2.putText(binary, "{}{}{}".format('Kapasitas : ', capacity, '%'), (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (60, 80, 20), 2, cv2.LINE_AA)
+                    if not os.path.isdir("static/results/" + chip + '/' + today + '/'):
+                        os.makedirs("static/results/" + chip + '/' + today + '/', 755, exist_ok=True)
 
-                if not os.path.isdir("static/results/" + chip + '/' + today + '/'):
-                    os.makedirs("static/results/" + chip + '/' + today + '/', 755, exist_ok=True)
+                    fileResult = "static/results/" + chip + '/' + today + '/' + now + '-est.jpg'
+                    cv2.imwrite(fileResult, binary)
 
-                fileResult = "static/results/" + chip + '/' + today + '/' + now + '-est.jpg'
-                cv2.imwrite(fileResult, binary)
+                    # -------------------------- OPENCV -------------------------- #
 
-                # -------------------------- OPENCV -------------------------- #
-
-
-                # if capacity > 80:
+                    if capacity > 80:
+                        notify = Notification("53897c503a5690403c6e6c7f419f571e")
+                        notify.send_text( "628561655028", "EVOC - Estimation Volume Container")
+            
                     # -------------------------- NOTIFICATION -------------------------- #
                     # listMonths = [ "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
                     # notify = Notification( 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjEsImlhdCI6MTYxMDUyNTUwNCwiZXhwIjoxNjQyMDgzMTA0fQ.aj0_J2rebO0IvKipMaNvzb29UiyE4m9gYqvqTFmACCg', 'fc5199d9-0b2e-40d0-b7c1-4d31ae8fb6b7' )
@@ -262,46 +266,49 @@ def background_temps(duration, data):
                     # -------------------------- NOTIFICATION -------------------------- #
 
 
-                # -------------------------- JSON RESULTS -------------------------- #
-                devicesPayload = {
-                    "chip"                  : chip,
-                    "name"                  : devices[chip],
-                    "coordinate"            : coordinate,
-                    "maps"                  : "https://www.google.com/maps/search/" + coordinate,
-                    "battery"               : battery,
-                    "mode"                  : mode,
-                    "vision"                : "OK" if vision else "ERROR",
-                    "raw"                   : SERVERNAME + filePath,
-                    "estimation"            : SERVERNAME + fileResult,
-                    "capacity"              : capacity,
-                    "date"                  : today,
-                    "time"                  : now,
-                    "timestamp"             : convert_time_to_wib(datetime.now(), "%Y-%m-%d %H:%M:%S")
-                }
+                    # -------------------------- JSON RESULTS -------------------------- #
+                    devicesPayload = {
+                        "chip"                  : chip,
+                        "name"                  : devices[chip],
+                        "coordinate"            : coordinate,
+                        "maps"                  : "https://www.google.com/maps/search/" + coordinate,
+                        "battery"               : battery,
+                        "mode"                  : mode,
+                        "vision"                : "OK" if vision else "ERROR",
+                        "raw"                   : SERVERNAME + filePath,
+                        "estimation"            : SERVERNAME + fileResult,
+                        "capacity"              : capacity,
+                        "date"                  : today,
+                        "time"                  : now,
+                        "timestamp"             : convert_time_to_wib(datetime.now(), "%Y-%m-%d %H:%M:%S")
+                    }
 
-               
-                jsonData  = json.dumps(devicesPayload)
-                db.push(jsonData)
-                # -------------------------- JSON RESULTS -------------------------- #
+                
+                    jsonData  = json.dumps(devicesPayload)
+                    db.push(jsonData)
+                    # -------------------------- JSON RESULTS -------------------------- #
 
 
-                # -------------------------- SOCKET PUSH -------------------------- #
+                    # -------------------------- SOCKET PUSH -------------------------- #
+                    socketio.emit('latest_estimation', parse_json(db.get_latest()) )
+                    socketio.emit('refresh_data', parse_json(db.get_all()) )
+                    socketio.emit('device_status', {
+                        "chip"       : chip,
+                        "status"     : "sleep",
+                        "uptime"     : uptime,
+                        "batt"       : battery,
+                    })
+                    # -------------------------- SOCKET PUSH -------------------------- #
 
-                socketio.emit('latest_estimation', parse_json(db.get_latest()) )
-                socketio.emit('refresh_data', parse_json(db.get_all()) )
-                socketio.emit('device_status', {
-                    "chip"       : chip,
-                    "status"     : "sleep",
-                    "uptime"     : uptime,
-                    "batt"       : battery,
-                })
-                # -------------------------- SOCKET PUSH -------------------------- #
-
-                # db.removeTemps({"id": payloadID})
-                print( "New Data from Device " + devices[chip] )
+                    db.removeTemps({"id": payloadID})
+                    print( "New Data from Device " + devices[chip] )
+                    socketio.emit('incoming_data', "New Data...")
+                else:
+                    print( "Cannot Read Raw Image" )
             else:
                 # Checking Index and Part Id Not Same
                 db.pushTemp(json.dumps(data))
+                socketio.emit('incoming_data', "Incoming Data...")
                 print( "Submitted to Temps" )
                 
         else:
@@ -326,4 +333,4 @@ if __name__ == "__main__":
     app.config['TEMPLATES_AUTO_RELOAD'] = True
     # app.run(debug=True)
     # app.run(host='0.0.0.0', port=3000, threaded=True, debug=True)
-    socketio.run(app, host='0.0.0.0', port=3000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=3000, debug=False)
