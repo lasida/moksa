@@ -123,9 +123,12 @@ void setup()
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
   
   chipid = ESP.getEfuseMac();//The chip ID is essentially its MAC address(length: 6 bytes).
-  Serial.begin(9600);
+  Serial.begin(19200);
+  
   SerialBT.begin("ECOV-DEV"); //Bluetooth device 
   Serial.println("AT+BTPOWER=0");
+  delay(1000);
+  Serial.println("AT+IPR=19200");
   pinMode(GPIO_VIBRATION, INPUT); 
 
   // ----- LED BLINK 10 Times ----- //
@@ -236,7 +239,7 @@ void loop(){
 
   //--------------------------------- Checking Time ---------------------------------//
 
-  SerialBT.println("ESP32 :: " + String(chipid) +" Setup Done !!!");
+//  SerialBT.println("ESP32 :: " + String(chipid) +" Setup Done !!!");
 
  // on Loop showing LED Error
   if( !status_sim || !status_camera ){
@@ -244,7 +247,7 @@ void loop(){
   }else{
     //checking time
     timeToSleep = getTimeLeft( timetoDecimal(device_timenow) );
-    SerialBT.print( "Time to Sleep : " ); SerialBT.print( timeToSleep ); SerialBT.println( "s" ); 
+//    SerialBT.print( "Time to Sleep : " ); SerialBT.print( timeToSleep ); SerialBT.println( "s" ); 
   }
   
   delay(1);
@@ -549,7 +552,7 @@ bool cameraCapture(){
 
   // -----------------------------> Flash ON
   digitalWrite(GPIO_FLASH, HIGH);
-  delay(200);
+  delay(500);
 
   // Camera Capture
   camera_fb_t * fb = NULL;
@@ -580,17 +583,19 @@ bool cameraCapture(){
 
   // Header Data
   Serial.print("ESP32 :: Generating Payload...");
-  int parts = round(base64Image.length() / 512);
+  int parts = round(base64Image.length() / 1024);
   String device_unique = "";
   String payloadID = String(chipid) + '-' + String(device_unique);
 
   // Vision Partial Sender
+    unsigned long start = micros();
+  SerialBT.println("SIM800L : Sending ... " );
   int Index;
   int cIndex = 0;
-  for (Index = 0; Index < base64Image.length(); Index = Index+512) {
+  for (Index = 0; Index < base64Image.length(); Index = Index+1024) {
     // Populate JSON
     Serial.print("ESP32 :: POST PARTIAL...");
-    String chunkVision = base64Image.substring(Index, Index+512);
+    String chunkVision = base64Image.substring(Index, Index+1024);
     using SpiRamJsonDocument = BasicJsonDocument<SpiRamAllocator>;
     SpiRamJsonDocument doc(1048576);
     doc["id"]= payloadID;
@@ -625,7 +630,13 @@ bool cameraCapture(){
     }
     cIndex++;
   }
-
+  
+  unsigned long end = micros();
+  unsigned long delta = end - start;
+  SerialBT.print( "SIM800L : Sent Time :: ");
+  SerialBT.print( int(delta / 1000 / 60 / 60));
+  SerialBT.println("s");
+  
   // Reset JSON Char
   memset(jsonVision, 0, sizeof(jsonVision));
   
@@ -638,16 +649,13 @@ bool cameraCapture(){
   SerialBT.println(ESP.getPsramSize());
   SerialBT.print("Free PSRAM: ");
   SerialBT.println(ESP.getFreePsram());
-
- 
-
+  
   return true;
 }
 
 
 bool SIM808_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
 {    
-  
   // Force Connecting
   while(!sim_connected) {
     gsmConnect();
@@ -657,12 +665,10 @@ bool SIM808_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
   // Check if connected, if not reset the module and setup the config again
   if(sim_connected) {
     SerialBT.println(F("SIM800L :: GPRS Connected!"));
-
-    unsigned long start = micros();
-    SerialBT.println("SIM800L : Sending ... " );
+    
     uint16_t rc;
     rc = sim800l->doPost(ENDPOINTS, CONTENT_TYPE, JsonDoc, 10000, 10000); // 20s Timeout
-    if(rc == 200 || rc == 703 ) {
+    if(rc == 200 || rc == 703 || rc == 705 ) {
       SerialBT.println(F("SIM800L :: HTTP POST successful ("));
       SerialBT.print(sim800l->getDataSizeReceived());
       SerialBT.print(F(" bytes)"));
@@ -673,11 +679,7 @@ bool SIM808_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
       return false;
     }
  
-    unsigned long end = micros();
-    unsigned long delta = end - start;
-    SerialBT.print( "SIM800L : Sent Time :: ");
-    SerialBT.print( int(delta / 1000 / 60 / 60));
-    SerialBT.println("s");
+
    
   } else {
     SerialBT.println(F("SIM800L :: GPRS Not Connected !"));
