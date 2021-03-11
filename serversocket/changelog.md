@@ -26,4 +26,7 @@
 + Add : WebSocket
 
 0.0.7 - 09 March 2021
-+ Fix : Notification
++ Fix : Notification 
+
+0.0.8 - 10 March 2021
++ Fix : Responsive 

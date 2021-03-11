@@ -2,56 +2,43 @@ import cv2
 # from main import app
 
 class Estimation:
-  raw = ""
-  colorspace = ""
-  img = ""
-  result = ""
-  binary = ""
   capacity = 0
-  percentage = 0
-  blackPixel = 0
-  totalPixel = 0
-  filename = ""
+  fileResult = ""
 
-  def __init__(self, path, device_chip, device_date, device_time, app ):
+  def __init__(self, path, chip, date, time, app ):
     with app.app_context():
-      print( "Path : " + path)
-      self.path = path
+      print( "**************** Estimation ****************' )
 
-      #Read Image
-      self.raw = cv2.imread( self.path )
+      self.raw = cv2.imread(path)
 
-    #Convert RGB to GRAYSCALE
-    # self.colorspace = cv2.cvtColor(self.raw, cv2.COLOR_RG   B2GRAY)
+      # Convert RGB to GRAYSCALE
+      self.colorspace = cv2.cvtColor(raw, cv2.COLOR_RGB2GRAY)
 
-    # #Pisahkan Warna Kontainer dengan Warna Disekitar
+      # Segmentation using Threshold
+      _, self.binary = cv2.threshold(colorspace, 30, 255, cv2.THRESH_BINARY_INV)
 
-    # #Crop Secara Bitwise -> Area Irisan = Object Timbunan
+      self.imageWidth = self.binary.shape[0] #width
+      self.imageHeight = self.binary.shape[1] #height
+      self.imageResolution = self.imageWidth * self.imageHeight
 
-    # #Hitung Tingg
+      self.blackPixel = self.imageResolution - cv2.countNonZero(self.binary)
 
-    # #Segmentation using Threshold
-    # _, self.binary = cv2.threshold(self.colorspace, 30, 255, cv2.THRESH_BINARY_INV)
+      # Counting Persentage
+      self.percentage = self.blackPixel/self.imageResolution * 100
+      self.capacity = round(self.percentage, 0)
 
-    # img_width = self.binary.shape[0]
-    # img_height = self.binary.shape[1]
-    # img_resolution = img_width * img_height
+      cv2.putText(self.binary, "{}{}{}".format('Kapasitas : ', self.capacity, '%'), (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (60, 80, 20), 2, cv2.LINE_AA)
 
-    # # print(self.binary)
-    # self.blackPixel = img_resolution - cv2.countNonZero(self.binary);
-    # # print(self.blackPixel)
+      if not os.path.isdir("static/results/" + chip + '/' + today + '/'):
+          os.makedirs("static/results/" + chip + '/' + today + '/', 755, exist_ok=True)
 
-    # #Counting Persentage
-    # temp = self.blackPixel/img_resolution * 100
-    # self.percentage = round( temp, 0 )
-    # return self.percentage
+      self.fileResult = "static/results/" + chip + '/' + today + '/' + now + '-est.jpg'
+      cv2.imwrite(self.fileResult, self.binary)
 
-    # cv2.putText(self.binary, "{}{}{}".format('Kapasitas : ', self.percentage, '%'), (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (60,80,20), 2, cv2.LINE_AA)
-    # self.filename = "static/devices/" + device_chip + '/' + device_date + '/' + device_time + '-est.jpg'
-    # cv2.imwrite(self.filename, self.binary) 
+ 
 
-  def getFilename( self ):
-    return self.filename
+  def getCapacity( self ):
+    return self.capacity
   
-  def getEstimation( self ):
-    return self.percentage
+  def getFilename( self ):
+    return self.fileResult

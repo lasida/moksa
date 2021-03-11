@@ -26,7 +26,7 @@
                 <div class="col col-3" >
                     <p>Async mode is: <b>{{ async_mode }}</b></p>
                     <p>Average Latency: <b><span id="ping-pong"></span>ms</b></p>
-                    <p>REST API : <strong id="inforest">Waiting</strong></p>
+                    <p>REST API : <strong id="inforest">Waiting...</strong></p>
                 </div>
             </header>
 
@@ -59,28 +59,26 @@
                 return string.charAt(0).toUpperCase() + string.slice(1);
             }
 
- 
-
             $(document).ready(function() {
+                // Define Socket
                 var socket = io();
-                // SERVERNAME = 'http://127.0.0.1:3000'
-                SERVERNAME = 'http://como.ap-1.evennode.com'
-
+                
                 // Socket Connect
                 socket.on('connect', function() {
-                    // socket.emit('my_event', {data: 'I\'m connected!'});
                     console.log("Socket Connected !!!");
                 });
 
+                // Latency Count
                 var ping_pong_times = [];
                 var start_time;
+
+                start_time = (new Date).getTime();
                 window.setInterval(function() {
                     start_time = (new Date).getTime();
-                    socket.emit('my_ping');
-                    socket.emit('refresh_data');
-                }, 10000);
+                    socket.emit('pong_py');
+                }, 1000);
 
-                socket.on('my_pong', function() 
+                socket.on('ping_js', function() 
                 {
                     var latency = (new Date).getTime() - start_time;
 

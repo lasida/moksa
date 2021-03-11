@@ -67,7 +67,7 @@
 
 //LED & VIBRATION GPIO
 #define GPIO_LED 12
-#define BUTTON_PIN_BITMASK 0x4
+#define BUTTON_PIN_BITMASK 0x2
 #define GPIO_VIBRATION 2
 #define GPIO_FLASH 4
 
@@ -188,7 +188,7 @@ void setup()
  
   // GPIO Setup
   pinMode(GPIO_FLASH, OUTPUT);
-  //pinMode(BUTTON_PIN_BITMASK, INPUT_PULLUP); 
+  pinMode(BUTTON_PIN_BITMASK, INPUT_PULLDWON); 
 
   // ----- LED BLINK 10 Times ----- //
   ledcSetup(0, 5000, 13);
@@ -240,8 +240,8 @@ void loop(){
       indicator_error();
       ESP.restart();
   }else{
-      //timeToSleep = getTimeLeft( timetoDecimal(device_timenow));
-      //Serial.print( "Time to Decimal : " ); Serial.print( timeToSleep ); Serial.println( "s" ); 
+    //timeToSleep = getTimeLeft( timetoDecimal(device_timenow));
+    //Serial.print( "Time to Decimal : " ); Serial.print( timeToSleep ); Serial.println( "s" ); 
     timeToSleep = 300; // 5 minutes
     
     if( getCameraPicture() ){
@@ -468,7 +468,7 @@ bool getCameraPicture(){
 
     // Sending Payload
     Serial.print("ESP32 :: Sending Payload...");
-    bool rstatus = ESP32_POST_HTTP( "http://como.ap-1.evennode.com/v1/device/data", jsonVision );
+    bool rstatus = ESP32_POST_HTTP( "http://camon.ap-1.evennode.com/v1/device/data", jsonVision );
     if( rstatus ){
       Serial.println("....OK");
     }else{

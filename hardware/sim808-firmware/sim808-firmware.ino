@@ -36,7 +36,7 @@
 //Connection
 #include "BluetoothSerial.h"
 #include "SIM800L.h"
-#include <DFRobot_sim808.h>
+//#include <DFRobot_sim808.h>
 
 // GPRS APN
 const char APN[] = "telkomsel";
@@ -71,14 +71,14 @@ const char DEVICE_DATA[] = "c98b5f5e-2765-470c-a788-f095697c1070";
 
 //LED & VIBRATION GPIO
 #define GPIO_LED 12
-#define BUTTON_PIN_BITMASK 0x4 // GPIO 2^2 = 0x4
+#define BUTTON_PIN_BITMASK 0x2 // GPIO 2^2 = 0x4
 #define GPIO_VIBRATION 2
 #define GPIO_FLASH 4
 
 // Object Intialize
 BluetoothSerial SerialBT;
 SIM800L* sim800l;
-DFRobot_SIM808 sim808(&Serial);
+//DFRobot_SIM808 sim808(&Serial);
 
 // Set Flag Internet Connected
 uint32_t chipid;  
@@ -123,10 +123,10 @@ void setup()
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
   
   chipid = ESP.getEfuseMac();//The chip ID is essentially its MAC address(length: 6 bytes).
-  Serial.begin(115200);
+  Serial.begin(9600);
   SerialBT.begin("ECOV-DEV"); //Bluetooth device 
   Serial.println("AT+BTPOWER=0");
-  pinMode(GPIO_VIBRATION, INPUT_PULLDOWN); 
+  pinMode(GPIO_VIBRATION, INPUT); 
 
   // ----- LED BLINK 10 Times ----- //
   ledcSetup(0, 5000, 13);
@@ -136,11 +136,11 @@ void setup()
   
   // --> Setup GPS
   delay(500);
-  if( sim808.attachGPS())
-      SerialBT.println("Open the GPS power success");
-  else
-      SerialBT.println("Open the GPS power failure");
-  setupGPS();
+//  if( sim808.attachGPS())
+//      SerialBT.println("Open the GPS power success");
+//  else
+//      SerialBT.println("Open the GPS power failure");
+//  setupGPS();
 
   //Increment boot number and print it every reboot
   ++BOOT;
@@ -236,15 +236,17 @@ void loop(){
 
   //--------------------------------- Checking Time ---------------------------------//
 
-  // on Loop showing LED Error
-  //  if( !status_sim || !status_camera ){
-  //    indicator_error();
-  //  }else{
-  //    //checking time
-  //    timeToSleep = getTimeLeft( timetoDecimal(device_timenow) );
-  //    SerialBT.print( "Time to Sleep : " ); SerialBT.print( timeToSleep ); SerialBT.println( "s" ); 
-  //  }
-  //  
+  SerialBT.println("ESP32 :: " + String(chipid) +" Setup Done !!!");
+
+ // on Loop showing LED Error
+  if( !status_sim || !status_camera ){
+    indicator_error();
+  }else{
+    //checking time
+    timeToSleep = getTimeLeft( timetoDecimal(device_timenow) );
+    SerialBT.print( "Time to Sleep : " ); SerialBT.print( timeToSleep ); SerialBT.println( "s" ); 
+  }
+  
   delay(1);
 }
 
@@ -576,63 +578,52 @@ bool cameraCapture(){
   esp_camera_fb_return(fb);
   SerialBT.println("... OK");
 
-  
-  SerialBT.println("ESP32 :: Generating Header Payload...");
-  int payloadPart = round(base64Image.length() / 3000);
-  String payloadID = String(chipid) + '-' + String(device_time);
-
-  using SpiRamJsonDocument = BasicJsonDocument<SpiRamAllocator>;
-  SpiRamJsonDocument doc(1048576);
-  doc["chip"] = String(chipid);
-  doc["lat"]  = "-6.52151";
-  doc["long"] = "105.52151";
-  doc["batt"] = "100";
-  doc["mode"] = "charge";
-  doc["length"] = base64Image.length();
-  doc["parts"] = payloadPart;
-  doc["id"] = payloadID;
-  serializeJson(doc, jsonVision);  
-  Serial.println("... OK");
-
-  Serial.print("ESP32 :: Send Header...");
-  bool rstatus = SIM808_POST_HTTP( "http://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonVision );
+  // Header Data
+  Serial.print("ESP32 :: Generating Payload...");
+  int parts = round(base64Image.length() / 512);
+  String device_unique = "";
+  String payloadID = String(chipid) + '-' + String(device_unique);
 
   // Vision Partial Sender
   int Index;
-  int partIndex = 0;
-  for (Index = 0; Index < base64Image.length(); Index = Index+3000) {
-    memset(jsonVision, 0, sizeof(jsonVision));
-        
-    SerialBT.print("ESP32 :: Sending Payload Partial...");
-    String chunkVision = base64Image.substring(Index, Index+3000);
-    
+  int cIndex = 0;
+  for (Index = 0; Index < base64Image.length(); Index = Index+512) {
+    // Populate JSON
+    Serial.print("ESP32 :: POST PARTIAL...");
+    String chunkVision = base64Image.substring(Index, Index+512);
     using SpiRamJsonDocument = BasicJsonDocument<SpiRamAllocator>;
     SpiRamJsonDocument doc(1048576);
     doc["id"]= payloadID;
     doc["chip"] = String(chipid);
     doc["vision"] = chunkVision;
-    doc["index"] = partIndex;
-    doc["chunk"] = chunkVision.length();
-    if( partIndex == payloadPart ){
+    doc["index"] = cIndex;
+      
+    if( cIndex == parts ){
       doc["parity"] = "true";
+      doc["chip"] = String(chipid);
+      doc["lat"]  = "-6.52151";
+      doc["long"] = "105.52151";
+      doc["batt"] = "100";
+      doc["mode"] = "charge";
+      doc["length"] = base64Image.length();
+      doc["parts"] = parts;
     }
+    doc["chunksize"] = chunkVision.length();
+      
     serializeJson(doc, jsonVision);  
-    SerialBT.println("... OK");
+    Serial.println("... OK");
 
-    SerialBT.print("Chunk Image : "); SerialBT.println( chunkVision.length());
+    Serial.print("Length Image : "); Serial.println( base64Image.length());
 
     // Sending Payload
-    SerialBT.println("ESP32 :: Send Body...");
-    bool rstatus = SIM808_POST_HTTP( "http://webhook.site/c98b5f5e-2765-470c-a788-f095697c1070", jsonVision );
+    Serial.print("ESP32 :: Sending Payload...");
+    bool rstatus = SIM808_POST_HTTP( "http://webhook.site/ef5e531d-48bd-4517-8d78-61137ff2040e", jsonVision );
     if( rstatus ){
-      SerialBT.println("....OK");
+      Serial.println("....OK");
     }else{
-      SerialBT.println("....Failed");
+      Serial.println("....Failed");
     }
-    partIndex++;
-    
-    Serial.println("AT+HTTPTERM");
-    delay(5000);
+    cIndex++;
   }
 
   // Reset JSON Char
@@ -648,7 +639,7 @@ bool cameraCapture(){
   SerialBT.print("Free PSRAM: ");
   SerialBT.println(ESP.getFreePsram());
 
-  gsmDisconnect();
+ 
 
   return true;
 }
@@ -656,11 +647,11 @@ bool cameraCapture(){
 
 bool SIM808_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
 {    
-  delay(3333);
+  
   // Force Connecting
   while(!sim_connected) {
     gsmConnect();
-    delay(2000);
+    delay(1000);
   }
 
   // Check if connected, if not reset the module and setup the config again
@@ -670,7 +661,7 @@ bool SIM808_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
     unsigned long start = micros();
     SerialBT.println("SIM800L : Sending ... " );
     uint16_t rc;
-    rc = sim800l->doPost(ENDPOINTS, CONTENT_TYPE, JsonDoc, 20000, 20000); // 20s Timeout
+    rc = sim800l->doPost(ENDPOINTS, CONTENT_TYPE, JsonDoc, 10000, 10000); // 20s Timeout
     if(rc == 200 || rc == 703 ) {
       SerialBT.println(F("SIM800L :: HTTP POST successful ("));
       SerialBT.print(sim800l->getDataSizeReceived());
@@ -687,14 +678,14 @@ bool SIM808_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
     SerialBT.print( "SIM800L : Sent Time :: ");
     SerialBT.print( int(delta / 1000 / 60 / 60));
     SerialBT.println("s");
-
+   
   } else {
     SerialBT.println(F("SIM800L :: GPRS Not Connected !"));
     SerialBT.println(F("SIM800L :: Reset the module."));
     ESP.restart();
   }
 
-  memset(JsonDoc, 0, sizeof(JsonDoc));
+
 }
 
 /**

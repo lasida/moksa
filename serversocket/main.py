@@ -75,9 +75,9 @@ def isset( data, key, typedata = "str" ):
 
 #Send Ping
 @socketio.event
-def my_ping():
-    socketio.emit('my_pong')
-    print("PINGPONG")
+def pong_py():
+    socketio.emit('ping_js')
+    print("Sent Ping")
 
 @socketio.event
 def refresh_data():
@@ -92,19 +92,16 @@ def connect():
     with thread_lock:
         if thread is None:
             socketio.sleep(1)
-            socketio.emit('latest_estimation', parse_json(db.get_latest()) )
-            socketio.emit('refresh_data', parse_json(db.get_all()) )
-            # thread = socketio.start_background_task(background_thread)
+            thread = socketio.start_background_task(background_thread)
         
 
 #SocketIO Server to Client
-# def background_thread():
-#     """Server to Client Sender sleep every 5s."""
-#     count = 0
-#     while True:
-#         socketio.sleep(2)
-#         count += 1
-#         socketio.emit('ecov_counter', count)
+def background_thread():
+    """Server to Client Sender sleep every 10s."""
+    while True:
+        socketio.sleep(10)
+        socketio.emit('latest_estimation', parse_json(db.get_latest()) )
+        socketio.emit('refresh_data', parse_json(db.get_all()) )
 
 
 #----------------------------------- REST API -------------------------------------#
@@ -210,40 +207,43 @@ def background_temps(duration, data):
 
                 # --> Saving Image to File
                 # os.chmod(filePath, 0o777)
-                with open(filePath, 'w+') as f:
+                with open(filePath, 'w') as f:
                     f.write(imageTemps)
                     
                 # -------------------------- Combining Part and Save Raw Image -------------------------- #
 
                 
                 if os.path.isfile(filePath):
+                    estimation = Estimation( filePath, chip, today, now )
+                    capacity = estimation.getCapacity()
+                    fileResult = estimation.getFilename()
                     # -------------------------- OPENCV -------------------------- #
                     # Read Image
-                    raw = cv2.imread(filePath)
+                    # raw = cv2.imread(filePath)
 
-                    # Convert RGB to GRAYSCALE
-                    colorspace = cv2.cvtColor(raw, cv2.COLOR_RGB2GRAY)
+                    # # Convert RGB to GRAYSCALE
+                    # colorspace = cv2.cvtColor(raw, cv2.COLOR_RGB2GRAY)
 
-                    # Segmentation using Threshold
-                    _, binary = cv2.threshold(colorspace, 30, 255, cv2.THRESH_BINARY_INV)
+                    # # Segmentation using Threshold
+                    # _, binary = cv2.threshold(colorspace, 30, 255, cv2.THRESH_BINARY_INV)
 
-                    imageWidth = binary.shape[0] #width
-                    imageHeight = binary.shape[1] #height
-                    imageResolution = imageWidth * imageHeight
+                    # imageWidth = binary.shape[0] #width
+                    # imageHeight = binary.shape[1] #height
+                    # imageResolution = imageWidth * imageHeight
 
-                    blackPixel = imageResolution - cv2.countNonZero(binary)
+                    # blackPixel = imageResolution - cv2.countNonZero(binary)
 
-                    # Counting Persentage
-                    percentage = blackPixel/imageResolution * 100
-                    capacity = round(percentage, 0)
+                    # # Counting Persentage
+                    # percentage = blackPixel/imageResolution * 100
+                    # capacity = round(percentage, 0)
 
-                    cv2.putText(binary, "{}{}{}".format('Kapasitas : ', capacity, '%'), (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (60, 80, 20), 2, cv2.LINE_AA)
+                    # cv2.putText(binary, "{}{}{}".format('Kapasitas : ', capacity, '%'), (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (60, 80, 20), 2, cv2.LINE_AA)
 
-                    if not os.path.isdir("static/results/" + chip + '/' + today + '/'):
-                        os.makedirs("static/results/" + chip + '/' + today + '/', 755, exist_ok=True)
+                    # if not os.path.isdir("static/results/" + chip + '/' + today + '/'):
+                    #     os.makedirs("static/results/" + chip + '/' + today + '/', 755, exist_ok=True)
 
-                    fileResult = "static/results/" + chip + '/' + today + '/' + now + '-est.jpg'
-                    cv2.imwrite(fileResult, binary)
+                    # fileResult = "static/results/" + chip + '/' + today + '/' + now + '-est.jpg'
+                    # cv2.imwrite(fileResult, binary)
 
                     # -------------------------- OPENCV -------------------------- #
 
