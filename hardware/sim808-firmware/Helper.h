@@ -44,9 +44,13 @@ void indicator_error(){
   ledcAnalogWrite(0, 255);
   delay(1000);
 }
+void indicator_clear(){
+  ledcAnalogWrite(0, 0);
+  delay(1000);
+}
 
 void indicator_fast_blink( int ctimes ){ 
-  for( int cTh = 0; cTh < ctimes; cTh++){ // 5 times blink
+  for( int cTh = 0; cTh < ctimes + 1; cTh++){ // 5 times blink
     ledcAnalogWrite(0, 255);
     delay(100);
     ledcAnalogWrite(0, 0);
@@ -89,33 +93,6 @@ String urlencode(String str)
     return encodedString;
 }
 
-int timetoDecimal( String strtime )
-{
-  /*
-   * Time to Decimal
-   * 00.00 == 0
-   * 00.01 == 1
-   * 01.00 == 60
-   * 02.00 == 120
-   * 03.00 == 180
-   * 04.00 == 240
-   * 05.00 == 300
-   * 06.00 == 360
-   * 07.00 == 420
-   * 08.00 == 480
-   * 08.30 == 510 ( 8.15 -> split 8 * 60 + 30 == 1395 )
-   * 09.00 == 540
-   * 09.30 == 570
-   * 10.00 == 600
-   * 23.00 == 1380
-   * 23.15 == 1395 ( 23.15 -> split 23 * 60 + 15 == 1395 )
-   * 23.30 == 1410
-   * 24.00 == 1440
-   */
-  int strhour = getValue( strtime, ':', 0 ).toInt(); // 00
-  int strminute = getValue( strtime, ':', 1 ).toInt(); // 00
-  return strhour * 60 + strminute;
-}
 
 /**
  * Calculate Battery based on Voltage Raw
@@ -235,9 +212,40 @@ void print_GPIO_wake_up(){
   Serial.println((log(GPIO_reason))/log(2), 0);
 }
 
+
+int timetoDecimal( String strtime )
+{
+  /*
+   * Time to Decimal
+   * 00.00 == 0
+   * 00.01 == 1
+   * 01.00 == 60
+   * 02.00 == 120
+   * 03.00 == 180
+   * 04.00 == 240
+   * 05.00 == 300
+   * 06.00 == 360
+   * 07.00 == 420
+   * 08.00 == 480
+   * 08.30 == 510 ( 8.15 -> split 8 * 60 + 30 == 1395 )
+   * 09.00 == 540
+   * 09.30 == 570
+   * 10.00 == 600
+   * 23.00 == 1380
+   * 23.15 == 1395 ( 23.15 -> split 23 * 60 + 15 == 1395 )
+   * 23.30 == 1410
+   * 24.00 == 1440
+   */
+  int strhour = getValue( strtime, ':', 0 ).toInt(); // 00
+  int strminute = getValue( strtime, ':', 1 ).toInt(); // 00
+  return strhour * 60 + strminute;
+}
+
 int getTimeLeft( int timeDecimal ){
   int timeLeft;
-  if( timeDecimal  > 420 && timeDecimal  < 480 ){ // 07.00
+  if( timeDecimal  > 360 && timeDecimal  < 420 ){ // 06.00
+     timeLeft  = ( 420 - timeDecimal ) * 60 ; 
+  }else if( timeDecimal  > 420 && timeDecimal  < 480 ){ // 07.00
      timeLeft  = ( 480 - timeDecimal ) * 60 ; // 231 menit * 60 == (s), 420 == 00.00 -- 07.00
   }else if( timeDecimal > 481 && timeDecimal < 540 ){ // 08.00
      timeLeft = ( 540 - timeDecimal ) * 60 ; 
@@ -260,9 +268,9 @@ int getTimeLeft( int timeDecimal ){
   }else if( timeDecimal > 1121 && timeDecimal < 1180 ){ // 17.00
     timeLeft = ( 1180 - timeDecimal ) * 60 ;
   }else if( timeDecimal > 1181 ){ // 18.00 -- 00.00
-      timeLeft = ( ( 1440 - timeDecimal ) + 420 ) * 60 ; // 231 menit * 60 == (s), 420 == 00.00 -- 07.00
-  }else{ // 00.00 - 07.00
-      timeLeft = ( 480 - timeDecimal ) * 60 ;
+      timeLeft = ( ( 1440 - timeDecimal ) + 360 ) * 60 ; // 231 menit * 60 == (s), 360 == 00.00 -- 06.00
+  }else{ // 00.00 - 06.00
+      timeLeft = ( 360 - timeDecimal ) * 60 ;
   }
   return timeLeft;
 } 

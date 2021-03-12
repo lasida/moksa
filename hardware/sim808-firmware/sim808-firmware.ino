@@ -1,4 +1,3 @@
-
 /**
  * ESP32 Camera
  * SIM808
@@ -93,7 +92,6 @@ bool status_sim = false;
 // GPS and Mode Temp
 double device_lat;
 double device_long;
-double device_alt;
 
 int device_battery;
 String device_mode;
@@ -103,7 +101,7 @@ char jsonVision[30000];
 char jsonStatus[100];
 
 //DateTime
-String device_time = "";
+String device_timeID = "";
 String device_timenow = "";
 String device_datenow = "";
 String device_datetime = "";
@@ -124,37 +122,40 @@ void setup()
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
   
   chipid = ESP.getEfuseMac();// get ChipID;
-  Serial.begin(57600);
+  Serial.begin(57600); // Set ESP32 BaudRate
   SerialBT.begin("ECOV-DEV"); // Init Bluetooth Device Name; 
-  Serial.println("AT+IPR=57600");
-  delay(1000);
-  Serial.println("AT+BTPOWER=0");
-  pinMode(GPIO_VIBRATION, INPUT); 
 
-  // ----- LED BLINK 10 Times ----- //
+  // ----- Startup LED BLINK and Delay 5s ----- //
   ledcSetup(0, 5000, 13);
   ledcAttachPin(GPIO_LED, 0);
-  indicator_fast_blink( 11 );
+  indicator_fast_blink( 5 );
   pinMode(GPIO_FLASH, OUTPUT);
+  
+  Serial.println("AT+IPR=57600"); // Set SIM808 BaudRate
+  delay(1000);
+  Serial.println("AT+CFUN=1,1"); 
+  delay(2000);
+  Serial.println("AT+BTPOWER=0"); // Disable Bluetooth SIM808
+  pinMode(GPIO_VIBRATION, INPUT);  
 
-  //Increment boot number and print it every reboot
+  // ----- Boot Count ----- //
   ++BOOT;
   SerialBT.println("Boot Number: " + String(BOOT));
   SerialBT.println("Runtime : " + String(rtc_time_seconds));
 
-  // --> Setup Battery
-  //delay(500);
-  //getBattery();
-
-  // --> Setup SIM800L and SerialBT  
+  // ----- Setup SIM808 using SIM800L Library and Disable Sleep Mode via At Command ----- //
   sim800l = new SIM800L((Stream *)&Serial );
   Serial.println("AT+CSCLK=0"); 
-  delay(700);
+  delay(1000);
   gsmSetup();
   
   // --> Setup Camera
   delay(500);
   cameraSetup();
+
+  // --> Setup Battery
+  delay(500);
+  getBattery();
 
   SerialBT.println("ESP32 :: " + String(chipid) +" Setup Done !!!");
   SerialBT.println('\n');
@@ -163,8 +164,8 @@ void setup()
   print_wakeup_reason();
 
   //Wake Up using Trigger | Vibration
-  //print_GPIO_wake_up();
-  //esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK,ESP_EXT1_WAKEUP_ANY_HIGH);
+  print_GPIO_wake_up();
+  esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK,ESP_EXT1_WAKEUP_ANY_HIGH);
 
   //cameraCapture();
 }
@@ -201,34 +202,7 @@ void loop(){
   //  }
 
   //************** Get GPS data *******************
-  if (sim808.getGPS()) {
-    SerialBT.print(sim808.GPSdata.year);
-    SerialBT.print("/");
-    SerialBT.print(sim808.GPSdata.month);
-    SerialBT.print("/");
-    SerialBT.print(sim808.GPSdata.day);
-    SerialBT.print(" ");  
-    SerialBT.print(sim808.GPSdata.hour);
-    SerialBT.print(":");
-    SerialBT.print(sim808.GPSdata.minute);
-    SerialBT.print(":");
-    SerialBT.print(sim808.GPSdata.second);
-    SerialBT.print(":");
-    SerialBT.println(sim808.GPSdata.centisecond);
-    SerialBT.print("latitude :");
-    SerialBT.println(sim808.GPSdata.lat);
-    SerialBT.print("longitude :");
-    SerialBT.println(sim808.GPSdata.lon);
-    SerialBT.print("speed_kph :");
-    SerialBT.println(sim808.GPSdata.speed_kph);
-    SerialBT.print("heading :");
-    SerialBT.println(sim808.GPSdata.heading);
-    SerialBT.println();
 
-    sim808.detachGPS();
-  }else{
-    SerialBT.println("GPS Low Signal");
-  }
 
   //--------------------------------- Checking Time ---------------------------------//
   if( !status_sim || !status_camera ){
@@ -260,86 +234,12 @@ void getBattery()
 }
 
 
-/**
- * Calculate Battery based on Voltage Raw
- */
-int calcBatt( int voltraw ){
-  float batt;
-  float tempBatt[32] = {}; 
-  float tempBattRaw[32] = {}; 
-  float tempBattVolt[32] = {}; 
-  float tempBattReal[32] = {};
 
-  int avgRaw = 0;
-  float avgVolt = 0.0;
-  float avgRealVolt = 0.0;
-  float avgBatt = 0.0;
-
-  for (int i = 0; i < 33; i++)
-  { // Get Sample Data for 33 Times
-
-    // Read Raw Voltage ADC from GPIO 13
-    tempBattRaw[i] = voltraw; // [3.7,3.6]
-    avgRaw = avgRaw + tempBattRaw[i]; // 3.7 + 3.6
-
-    // Calculate Voltage based Sensor
-    float voltage = (voltraw * 3.3 ) / (4095) + 0.12 ; // 0.177c is calibration
-    tempBattVolt[i] = voltage;
-    avgVolt = avgVolt + tempBattVolt[i]; 
-
-    // Calculate Real Voltage 
-    float realvolt = voltage * 2;
-    tempBattReal[i] = realvolt;
-    avgRealVolt = avgRealVolt + tempBattReal[i];  
-
-    // Calculate Capacity with Threshold
-    float Vmin = 3.8;
-    float Vmax = 4.1;
-    batt = ((realvolt-Vmin)/(Vmax-Vmin))*100;
-    if (batt > 100)
-      batt = 100;
-    else if (batt < 0)
-      batt = 0;
-
-    tempBatt[i] = batt;
-    avgBatt = avgBatt + tempBatt[i]; 
-    
-    // Smoothing
-    if (i == 32)  //33 samples are collected
-    {
-//       SerialBT.print("Raw = ");
-//       SerialBT.println( avgRaw / 33 );
-//          
-//       SerialBT.print("Voltage = ");
-//       SerialBT.println( avgVolt / 33 );
-//       
-//       SerialBT.print("Real Voltage = ");
-//       SerialBT.println( avgRealVolt / 33 );
-//       
-//       SerialBT.print("Battery = ");
-//       SerialBT.println( avgBatt / 33 );
-       
-//       tempBatt[33] = {};
-//       tempBattRaw[33] = {};
-//       tempBattVolt[33] = {};
-//       tempBattReal[33] = {};
-//       i = 0;
-//       avgRaw = 0;
-//       avgVolt = 0;
-//       avgRealVolt = 0;
-//       avgBatt = 0;
-    }
-    delay(33);
-  }
-
-  return batt;
-}
 
 /**
  * Getting Position Device
  * Longtitude
  * Latitude
- * Altimeter
  */
 void setupGPS(){
   SerialBT.println( "GPS :: Checking...." );
@@ -347,19 +247,18 @@ void setupGPS(){
 }
 
 bool getPosition(){
-//  while (Serial2.available() > 0 ) {
-//     gps.encode(Serial2.read());
-//  }
-//
-//  if( gps.location.lat() && gps.location.lng() ){
-//    // GPS Code
-//    
-//    SerialBT.println( "GPS :: OK !!!" );
-//    status_gps = true;
-//  }else{
-//    status_gps = false;
-//    SerialBT.println( "GPS :: Low Signal !!!" );
-//  }
+  if (sim808.getGPS()) {
+    SerialBT.print("latitude :");
+    SerialBT.println(sim808.GPSdata.lat);
+    device_lat = sim808.GPSdata.lat;
+    SerialBT.print("longitude :");
+    SerialBT.println(sim808.GPSdata.lon);
+    device_long = sim808.GPSdata.lon;
+    SerialBT.println( "GPS :: OK !!!" );
+    sim808.detachGPS();
+  }else{
+    SerialBT.println("GPS Low Signal");
+  }
 }
 
 /**
@@ -379,37 +278,37 @@ void gsmSetup(){
 
   // --> Checking Module Ready for 5s
   while(!sim800l->isReady() ) {
-    SerialBT.print("SIM808 :: Check Wiring....");
-    if( !sim800l->isReady() ){
-      SerialBT.println("....Not Detected !!!");
-      indicator_error(); // Set Indicator Error
-      break;
-    }else{
-      SerialBT.println("....OK !!!");
-      gsm_wiring = true;
-      break;
-    }
+    indicator_error(); // Set Indicator Error
+    SerialBT.println("SIM808 :: Check Wiring.......Not Detected !!!");
     delay(1000);
   }
 
+  SerialBT.println("SIM808 :: Check Wiring.......OK !!!");
+  gsm_wiring = true;
+  indicator_clear();
+
   // --> Setup GPS
   if( sim808.attachGPS() ){
-    SerialBT.println("SIM808 : GPS Power Success");
+    SerialBT.println("SIM808 :: GPS Power Success");
   }else{
-    SerialBT.println("SIM808 : GPS Power Failure");
+    indicator_error(); // Set Indicator Error
+    SerialBT.println("SIM808 :: GPS Power Failure");
   }
       
   // Waiting for Signal
-  delay(3333);
+  delay(3210);
+  indicator_clear();
 
-  // --> Checking GSM Signal for 5s
-  uint8_t signal = sim800l->getSignal();
-  while(!sim800l->getSignal() ) {
+  // --> Waiting GSM Signal
+  while(!sim800l->getSignal()) {
     SerialBT.println("SIM808 :: Signal not detected !!!");
     indicator_error(); // Set Indicator Error
+    delay(1000);
   }
-
-  // --> Signal Bar
+  uint8_t signal = sim800l->getSignal();
+  indicator_clear();
+  
+  // --> Signal Strength
   if( signal > 2 && signal < 11 ){
     SerialBT.print("SIM808 :: Signal.......POOR (");
   }else if( signal > 10 && signal < 15 ){
@@ -419,57 +318,68 @@ void gsmSetup(){
   }else if( signal > 20 && signal < 30 ){
     SerialBT.print("SIM808 :: Signal.......Excellent (");
   }
-  
-  //--> Signal Strength
   SerialBT.print(signal);
   SerialBT.println(")");
   gsm_signal = true;
-       
+
+  delay(1000);
   // --> Checking Network Registration for 5s
-  if( gsm_signal ){
-    SerialBT.print(F("SIM808 :: Network..."));
-    NetworkRegistration network = sim800l->getRegistrationStatus();
-    while(network != REGISTERED_HOME && network != REGISTERED_ROAMING) {
-      delay(1000);
+  NetworkRegistration network = sim800l->getRegistrationStatus();
+  while(network != REGISTERED_HOME && network != REGISTERED_ROAMING) {
+    SerialBT.print("SIM808 :: Network....");
+    if( network != REGISTERED_HOME && network != REGISTERED_ROAMING ){
       SerialBT.println("....Not Registered !!!");
-      SerialBT.println( "SIM800L :: Please check you Provider or Power" );
       indicator_error(); // Set Indicator Error
-    }
-
-    network = sim800l->getRegistrationStatus();
-    SerialBT.println("....Registered");
-    gsm_registered = true;
-  }
-
-  // --> Setup APN
-  bool success = sim800l->setupGPRS(APN);
-  while(!sim800l->setupGPRS(APN) ) {
-      SerialBT.println("SIM808 :: APN Error...");
-      indicator_error(); // Set Indicator Error
-      delay(1000);
-  }
-  
-  SerialBT.println("SIM808 :: Setup Configuration....OK");
-  status_sim = true;
-}
-
-bool gsmConnect(){
-  delay(3000);
-  SerialBT.print( "SIM800L :: Connecting...." );
-  
-  for(uint8_t i = 0; i < 10; i++) {
-    
-    sim_connected = sim800l->connectGPRS();
-    if( sim_connected ){
-      SerialBT.println("....OK");
-      break;
-    }else{
-      SerialBT.println("....Failed");
-      indicator_error();
-      delay(2000);
+      delay(3000);
     }
     delay(1000);
   }
+  indicator_clear();
+  delay(300);
+  SerialBT.println("SIM808 :: Network....Registered !!!");
+  gsm_registered = true;
+
+  // --> Setup APN
+  while(!sim800l->setupGPRS(APN) ) {
+     SerialBT.println("SIM808 :: APN Configuration ...");
+     bool success = sim800l->setupGPRS(APN);
+     if( !success ){
+      SerialBT.println("....Failed !!!");
+      indicator_error(); // Set Indicator Error
+      delay(3000);
+    }
+  }
+  indicator_clear();
+  SerialBT.println("SIM808 :: APN Configuration ...OK !!!");
+  status_sim = true;
+
+  networkServer();
+  
+  if(device_timeID == "A" ){
+    networkServer();
+  }
+
+  if( int(device_timeID.length()) > 6 ){
+    networkServer();
+  }
+  
+  // Check Capture Time
+  timeToSleep = getTimeLeft( timetoDecimal(device_timenow) );
+  goSleep(timeToSleep);
+}
+
+bool gsmConnect(){
+  while(!sim800l->connectGPRS() ) {
+   SerialBT.print("SIM808 :: GPRS Connecting ...");
+   sim_connected = sim800l->connectGPRS(); // Open Bearer
+    if( !sim_connected ){
+      SerialBT.println("....Failed !!!");
+      indicator_error(); // Set Indicator Error
+      sim800l->disconnectGPRS(); // Close Bearer
+      delay(15000); // waiting 15s
+    }
+  }
+  SerialBT.println("SIM808 :: GPRS Connecting .......OK !!!");  
 }
 
 bool gsmDisconnect(){
@@ -489,59 +399,7 @@ bool gsmDisconnect(){
   }
 }
 
-//--------------------------------- NetworkTime ---------------------------------//
-//void deviceNetworkTime(){
-//  if( GSM_Connect() ){
-//    deviceNetworkServer(); // Get Time by SIM800L
-//  }else{
-//    GSM_Connect(); // Reconnect GSM
-//  }
-//}
-//
-//void deviceNetworkServer(){
-//  String dataIn = "";
-//  String hasil = "";
-//  int i;
-//  Serial.println("AT+CCLK?"); delay(2000);
-//  
-//  while(Serial.available()!=0)
-//    dataIn += (char)Serial.read();
-//    for( i=1; i< dataIn.length(); i++){
-//        if(  dataIn[i] == '"' || (dataIn[i] == 'C')  || (dataIn[i] == 'L')  || (dataIn[i] == 'K')  || (dataIn[i] == ' ') ){
-//        }else{
-//            hasil += dataIn[i];
-//        }
-//    }
-//
-//    for (int i = 0; i < hasil.length(); i++) {
-//      if (hasil.substring(i, i+1) == ",") {
-//        device_datenow = hasil.substring(0, i);
-//        device_timenow= hasil.substring(i+1);
-//        break;
-//      }
-//    }
-//
-//  device_datenow = getValue( getValue(hasil, ',', 0 ), ':', 1);
-//  device_timenow = getValue( getValue(hasil, ',', 1 ), '+', 0);
-//  device_datetime = device_datenow + "," + device_timenow;
-//      
-//  SerialBT.print("NetworkTime :: DateTime = ");
-//  SerialBT.println(device_datetime);
-//  
-//  SerialBT.print("NetworkTime :: Date = ");
-//  SerialBT.println(device_datenow);
-//  
-//  SerialBT.print("NetworkTime :: Time = ");
-//  SerialBT.println(device_timenow);
-//}
 
-//String deviceTimeNow(){
-//  return device_timenow;
-//}
-//
-//String deviceDateNow(){
-//  return device_datenow;
-//}
 
 /**
  * Method :: POST Device Status  
@@ -732,15 +590,9 @@ bool cameraCapture(){
   return true;
 }
 
-
+//--------------------------------- HTTP POST ---------------------------------//
 bool SIM808_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
 {    
-  // Force Connecting
-  while(!sim_connected) {
-    gsmConnect();
-    delay(3000);
-  }
-
   // Check if connected, if not reset the module and setup the config again
   if(sim_connected) {
     SerialBT.println(F("SIM800L :: GPRS Connected!"));
@@ -761,9 +613,7 @@ bool SIM808_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
   }
 }
 
-/**
- * Method : Sleep
- */
+//--------------------------------- Sleep ---------------------------------//
 tmElements_t tm;
 void goSleep( int timeSleep ){
   
@@ -782,7 +632,8 @@ void goSleep( int timeSleep ){
   tm.Second = 0 + addSecond;
   tm.Day = getValue( device_datenow, '/', 2 ).toInt();
   tm.Month = getValue( device_datenow, '/', 1 ).toInt();
-  tm.Year = getValue( device_datenow, '/', 0 ).toInt() - 1970; // offset from 1970;
+//  tm.Year = getValue( device_datenow, '/', 0 ).toInt() - 1970; // offset from 1970;
+  tm.Year = 2021 - 1970;
   nextMakeTime = makeTime(tm); // convert time elements into time_t
 
   SerialBT.print("Wake Up On : ");   
@@ -792,12 +643,57 @@ void goSleep( int timeSleep ){
   rtc_time_seconds += local_time_seconds;
   
   esp_sleep_enable_timer_wakeup(timeSleep * uS_TO_S_FACTOR);
-  SerialBT.println("SP32 to sleep for  " + String(timeSleep) + " Seconds");
-  SerialBT.println("Sleep : zZZZzzZZZZzzzZZZ");
+  SerialBT.println("ESP32 Sleep for  " + String(timeSleep) + " Seconds");
+  SerialBT.println("Tidurlah, malam terlalu malam");
+  SerialBT.println("Tidurlah, pagi terlalu pagi");
   Serial.println("AT+CSCLK=2"); // Sleep SIM808
   
   indicator_fast_blink( 3 );
   Serial.flush(); 
   SerialBT.flush(); 
   esp_deep_sleep_start();
+}
+
+//--------------------------------- NetworkTime ---------------------------------//
+void networkServer(){
+  delay(3000);
+  String dataIn = "";
+  String hasil = "";
+  int i;
+  Serial.println("AT+CCLK?"); delay(2000);
+  
+  while(Serial.available()!=0)
+    dataIn += (char)Serial.read();
+    for( i=1; i< dataIn.length(); i++){
+        if(  dataIn[i] == '"' || (dataIn[i] == 'C')  || (dataIn[i] == 'L')  || (dataIn[i] == 'K')  || (dataIn[i] == ' ') ){
+        }else{
+            hasil += dataIn[i];
+        }
+    }
+
+    for (int i = 0; i < hasil.length(); i++) {
+      if (hasil.substring(i, i+1) == ",") {
+        device_datenow = hasil.substring(0, i);
+        device_timenow= hasil.substring(i+1);
+        break;
+      }
+    }
+
+  device_datenow = getValue( getValue(hasil, ',', 0 ), ':', 1);
+  device_timenow = getValue( getValue(hasil, ',', 1 ), '+', 0);
+  device_datetime = device_datenow + "," + device_timenow;
+  device_timeID = getValue(device_timenow, ':', 0 ) + getValue(device_timenow, ':', 1 ) + getValue(device_timenow, ':', 2 );
+      
+  SerialBT.print("NetworkTime :: DateTime = ");
+  SerialBT.println(device_datetime);
+  
+  SerialBT.print("NetworkTime :: Date = ");
+  SerialBT.println(device_datenow);
+  
+  SerialBT.print("NetworkTime :: Time = ");
+  SerialBT.println(device_timenow);
+    
+  SerialBT.print("NetworkTime :: TimeID = ");
+  SerialBT.println(device_timeID);
+
 }
