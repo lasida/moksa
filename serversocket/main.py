@@ -85,6 +85,7 @@ def pong_py():
 @socketio.event
 def startup_refresh():
     socketio.emit('latest_estimation', parse_json(db.get_latest()) )
+    socketio.emit('refresh_data', parse_json(db.get_all()) )
     
 # OnOnnect
 @socketio.event

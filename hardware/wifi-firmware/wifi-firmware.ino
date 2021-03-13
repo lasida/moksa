@@ -90,7 +90,7 @@ uint32_t chipid;
 bool status_camera = false;
 bool device_status_online = false;
 bool device_status_capture = false;
-bool device_mode = "charge";
+bool device_mode = "collect";
 
 //Post Temp
 char jsonVision[50000];
@@ -205,6 +205,7 @@ void setup()
   WiFi.onEvent(WiFiGotIP, SYSTEM_EVENT_STA_GOT_IP);
   WiFi.onEvent(WiFiStationDisconnected, SYSTEM_EVENT_STA_DISCONNECTED);   
 
+  ESP32_DEVICE_STATUS("collect", "online");
   // --> Setup Camera
   setupCamera();
 
@@ -242,7 +243,7 @@ void loop(){
   }else{
     //timeToSleep = getTimeLeft( timetoDecimal(device_timenow));
     //Serial.print( "Time to Decimal : " ); Serial.print( timeToSleep ); Serial.println( "s" ); 
-    timeToSleep = 300; // 5 minutes
+    timeToSleep = 30; // 5 minutes
     
     if( getCameraPicture() ){
       setupSleep(timeToSleep);
@@ -260,11 +261,11 @@ bool ESP32_DEVICE_STATUS( String statue, String mode_device ){
   DynamicJsonDocument doc(100);
   doc["chip"] = String(chipid);
   doc["status"] = statue; 
-//  doc["batt"] = device_battery;
+  doc["batt"] = 100;
   doc["mode"] = mode_device;
   doc["runtime"] = String(uptime_seconds);
   serializeJson(doc, jsonStatus);  
-  bool rstatus = ESP32_POST_HTTP( "http://escoca.ap-1.evennode.com/v1/device/status", jsonStatus );
+  bool rstatus = ESP32_POST_HTTP( "http://como.ap-1.evennode.com/v1/device/status", jsonStatus );
 }
 
 //--------------------------------- Camera ---------------------------------//
@@ -381,7 +382,7 @@ bool getCameraPicture(){
       doc["lat"]  = "-6.52151";
       doc["long"] = "105.52151";
       doc["batt"] = "100";
-      doc["mode"] = "charge";
+      doc["mode"] = "collect";
       doc["length"] = base64Image.length();
       doc["parts"] = parts;
       delay(1000);
@@ -475,6 +476,7 @@ bool ESP32_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
 //--------------------------------- Sleeping Setup ---------------------------------//
 tmElements_t tm;
 void setupSleep( int timeSleep ){
+
   // Ambil Sisa Detik untuk TIdur dari Waktu Sekarang
   char* monthList[12] = {"Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember" };
   Serial.print( "Time to Sleep : " ); Serial.print( timeSleep ); Serial.println( "s" ); 
@@ -494,12 +496,14 @@ void setupSleep( int timeSleep ){
   tm.Month = getValue( device_datenow, '/', 1 ).toInt();
   tm.Year = getValue( device_datenow, '/', 0 ).toInt() - 1970; // offset from 1970;
   nextMakeTime = makeTime(tm); // convert time elements into time_t
-
+  
   Serial.print("Wake Up On : ");   
   Serial.print(day(nextMakeTime));   Serial.print( " " ); Serial.print( monthList[month(nextMakeTime) - 1]); Serial.print( " " ); Serial.print(year(nextMakeTime));   
   Serial.print( " @ " ); Serial.print(hour(nextMakeTime)); Serial.print( ":" ); Serial.print(minute(nextMakeTime)); Serial.print( ":" ); Serial.println(second(nextMakeTime));  
   
   uptime_seconds += local_time_seconds;
+
+  ESP32_DEVICE_STATUS("collect", "sleep");
   //disconnect WiFi as it's no longer needed
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
