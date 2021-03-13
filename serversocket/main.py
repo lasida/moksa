@@ -10,12 +10,15 @@ import base64
 import requests
 import os
 import time
-import cv2
 
 from helpers import *
 from database import Repository
-# from estimation import Estimation
-from notification import Notification
+from estimation import CapacityEstimation
+from notification import WhatsAppAPI
+
+import logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 # Set this variable to "threading", "eventlet" or "gevent" to test the
 # different async modes, or leave it set to None for the application to choose
@@ -77,13 +80,11 @@ def isset( data, key, typedata = "str" ):
 @socketio.event
 def pong_py():
     socketio.emit('ping_js')
-    print("Sent Ping")
+    # print("Sent Ping")
 
 @socketio.event
-def refresh_data():
-    socketio.emit('refresh_data', parse_json(db.get_all()) )
+def startup_refresh():
     socketio.emit('latest_estimation', parse_json(db.get_latest()) )
-    print("Auto Refresh Data 10s")
     
 # OnOnnect
 @socketio.event
@@ -93,14 +94,14 @@ def connect():
         if thread is None:
             socketio.sleep(1)
             thread = socketio.start_background_task(background_thread)
-        
+            socketio.emit('latest_estimation', parse_json(db.get_latest()) )
 
 #SocketIO Server to Client
 def background_thread():
-    """Server to Client Sender sleep every 10s."""
+    print( "Background Task" )
     while True:
         socketio.sleep(10)
-        socketio.emit('latest_estimation', parse_json(db.get_latest()) )
+        # socketio.emit('notification_status', "628561655028" )
         socketio.emit('refresh_data', parse_json(db.get_all()) )
 
 
@@ -142,7 +143,7 @@ def device_status() :
 #------------------> REST POST :: Device Data Handler <-------------------#
 @app.route('/v1/device/data', methods=['POST'])
 def device_data():
-    print("Device Status...")
+    print("Incoming data from devices...")
     # --> Checking Request JSON
     if not request.is_json:
         return jsonify({"msg": "Request not JSON..."}), 400
@@ -207,14 +208,13 @@ def background_temps(duration, data):
 
                 # --> Saving Image to File
                 # os.chmod(filePath, 0o777)
-                with open(filePath, 'w') as f:
+                with open(filePath, 'wb+') as f:
                     f.write(imageTemps)
                     
                 # -------------------------- Combining Part and Save Raw Image -------------------------- #
 
-                
                 if os.path.isfile(filePath):
-                    estimation = Estimation( filePath, chip, today, now )
+                    estimation = CapacityEstimation( filePath, chip, today, now, app )
                     capacity = estimation.getCapacity()
                     fileResult = estimation.getFilename()
                     # -------------------------- OPENCV -------------------------- #
@@ -247,22 +247,25 @@ def background_temps(duration, data):
 
                     # -------------------------- OPENCV -------------------------- #
 
-                    if capacity > 80:
-                        notify = Notification("53897c503a5690403c6e6c7f419f571e")
-                        notify.send_text( "628561655028", "EVOC - Estimation Volume Container")
             
                     # -------------------------- NOTIFICATION -------------------------- #
-                    # listMonths = [ "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-                    # notify = Notification( 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjEsImlhdCI6MTYxMDUyNTUwNCwiZXhwIjoxNjQyMDgzMTA0fQ.aj0_J2rebO0IvKipMaNvzb29UiyE4m9gYqvqTFmACCg', 'fc5199d9-0b2e-40d0-b7c1-4d31ae8fb6b7' )
-                    # # notify.send_text( "628561655028", "EVOC - Estimation Volume Container")
-                    # notify.send_media( "628561655028", "EVOC -- " + devices[chip] +
-                    # "\nKapasitas : 80%\nKordinat: " + device_coordinate +
-                    # "\nBaterai : " + device_battery + "%" +
-                    # "\nTanggal : " + timeWIB(datetime.now()).strftime("%d") + " " +  listMonths[int(timeWIB(datetime.now()).strftime("%m")) -1 ]  + " " + timeWIB(datetime.now()).strftime("%Y") + " " + local_dt.now().strftime("%H:%M:%S") +
-                    # "\nMaps : " + 'https://www.google.com/maps/search/' + device_coordinate, HOSTNAME_URL + estimation_result.getFilename(), "image")
-                    # estimationResult = int(estimation_result.getEstimation())
-                    #  socketio.emit('notification_status', parse_json(db.get_all()) )
-                    ## SOCKET PUSH
+                    if capacity > 10:
+                        socketio.emit('notification_status', "628561655028" )
+
+                    #     listMonths = [ "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+
+                    #     notify = WhatsAppAPI("a316acb293bb464e3e884c24923581b7")
+                    #     notify.send_text( "628561655028", "COMO - Estimation Volume Container")
+                    #     notify.send_media( "628561655028", "Device ::" + devices[chip] +
+                    #     "\nKapasitas : "+ capacity +"%" +
+                    #     "\nKoordinat : " + coordinate +
+                    #     "\nBaterai : " + battery + "%" +
+                    #     "\nTanggal : " + timeWIB(datetime.now()).strftime("%d") + " " +  listMonths[int(timeWIB(datetime.now()).strftime("%m")) -1 ]  + " " + timeWIB(datetime.now()).strftime("%Y") + " " + local_dt.now().strftime("%H:%M:%S") +
+                    #     "\nMaps : " + 'https://www.google.com/maps/search/' + coordinate, 
+                    #     SERVERNAME + fileResult, "image")
+
+         
+                        ## SOCKET PUSH
                     # -------------------------- NOTIFICATION -------------------------- #
 
 
@@ -301,7 +304,7 @@ def background_temps(duration, data):
                     # -------------------------- SOCKET PUSH -------------------------- #
 
                     db.removeTemps({"id": payloadID})
-                    print( "New Data from Device " + devices[chip] )
+                    print( "New Data from Device " + devices[chip] + ", Capacity : {}".format(capacity))
                     socketio.emit('incoming_data', "New Data...")
                 else:
                     print( "Cannot Read Raw Image" )
@@ -314,19 +317,6 @@ def background_temps(duration, data):
         else:
             print( "Unregister Device" )
 #---> END :: background_temps()
-
-
-# --> REST GET :: Getting Device Data
-# @app.route('/v1/device/data', methods=['GET'])
-# def get_container_data():
-#     stream_data = db.get_all()
-#     return json_util.dumps(stream_data), 200
-
-
-# def background_combine(data):
-#     print("Kombinator")
-#     return "Anjing Banget"
-
 
 #-----------------------------------  Main -------------------------------------#
 if __name__ == "__main__":

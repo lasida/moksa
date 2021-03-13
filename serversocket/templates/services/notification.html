@@ -1,4 +1,4 @@
-<fieldset>
+<fieldset id="notification">
     <legend>Notification</legend>
     <div class="grid">
         <div class="grid-container">
@@ -19,10 +19,10 @@
                 </thead>
                 <tbody>
                     {% for stack in stackholder %}
-                        <tr id="">
+                        <tr id="628561655028">
                             <td>{{stackholder[stack]}}</td>
                             <td>{{stack}}</td>
-                            <td>-</td>
+                            <td class="status">-</td>
                         </tr>
                     {% endfor %}
                 </tbody>

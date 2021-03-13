@@ -1,7 +1,7 @@
 import requests
 
-#Notification REST API
-class Notification:
+
+class WhatsAppAPI:
 
   def __init__(self, apikey ):
     self.jwt = apikey

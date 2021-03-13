@@ -45,6 +45,11 @@ void indicator_error(){
   delay(1000);
 }
 
+void indicator_clear(){
+  ledcAnalogWrite(0, 0);
+  delay(1000);
+}
+
 void indicator_fast_blink( int ctimes ){ 
   for( int cTh = 0; cTh < ctimes; cTh++){ // 5 times blink
     ledcAnalogWrite(0, 255);

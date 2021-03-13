@@ -188,7 +188,7 @@ void setup()
  
   // GPIO Setup
   pinMode(GPIO_FLASH, OUTPUT);
-  pinMode(BUTTON_PIN_BITMASK, INPUT_PULLDWON); 
+  pinMode(BUTTON_PIN_BITMASK, INPUT); 
 
   // ----- LED BLINK 10 Times ----- //
   ledcSetup(0, 5000, 13);
@@ -252,79 +252,6 @@ void loop(){
   delay(1);
 }
 
-//--------------------------------- Sleeping Setup ---------------------------------//
-tmElements_t tm;
-void setupSleep( int timeSleep ){
-  // Ambil Sisa Detik untuk TIdur dari Waktu Sekarang
-  char* monthList[12] = {"Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember" };
-  Serial.print( "Time to Sleep : " ); Serial.print( timeSleep ); Serial.println( "s" ); 
-  //sendStatus( "Sleep(" + String(timeSleep) + "s)" ); 
-  
-  time_t nextMakeTime;
-  int ttS = timeSleep;
-  uint32_t rem = ttS%3600;
-  uint32_t addHour = ttS/3600;
-  uint32_t addMinute = rem/60;
-  uint32_t addSecond = rem%60;
-
-  tm.Hour = getValue( device_timenow, ':', 0 ).toInt() + addHour;
-  tm.Minute = getValue( device_timenow, ':', 1 ).toInt() + addMinute;
-  tm.Second = 0 + addSecond;
-  tm.Day = getValue( device_datenow, '/', 2 ).toInt();
-  tm.Month = getValue( device_datenow, '/', 1 ).toInt();
-  tm.Year = getValue( device_datenow, '/', 0 ).toInt() - 1970; // offset from 1970;
-  nextMakeTime = makeTime(tm); // convert time elements into time_t
-
-  Serial.print("Wake Up On : ");   
-  Serial.print(day(nextMakeTime));   Serial.print( " " ); Serial.print( monthList[month(nextMakeTime) - 1]); Serial.print( " " ); Serial.print(year(nextMakeTime));   
-  Serial.print( " @ " ); Serial.print(hour(nextMakeTime)); Serial.print( ":" ); Serial.print(minute(nextMakeTime)); Serial.print( ":" ); Serial.println(second(nextMakeTime));  
-  
-  uptime_seconds += local_time_seconds;
-  //disconnect WiFi as it's no longer needed
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_OFF);
-  
-  esp_sleep_enable_timer_wakeup(timeSleep * uS_TO_S_FACTOR);
-  
-  Serial.println("SP32 to sleep for  " + String(timeSleep) + " Seconds");
-  Serial.println("Sleep : zZZZzzZZZZzzzZZZ");
-  
-  indicator_fast_blink( 3 );
-  Serial.flush(); 
-  esp_deep_sleep_start();
-}
-
-//--------------------------------- NetworkTime ---------------------------------//
-void setupDateTime(){
-  struct tm timeinfo;
-  while(!getLocalTime(&timeinfo)){
-    Serial.println("Failed to obtain time");
-    delay(500);
-  }
-  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
-
-  strftime(device_datenow,30, "%Y/%m/%d", &timeinfo); // 2020-01-25
-  strftime(device_timenow,20, "%H:%M:%S", &timeinfo); // 10:24:03
-  strftime(device_datetime,40, "%Y/%m/%d, %H:%M:%S", &timeinfo);
-  strftime(device_unique,20, "%H%M%S", &timeinfo); // 102403
-
-  Serial.print("NetworkTime :: DateTime = ");
-  Serial.println(device_datetime);
-  
-  Serial.print("NetworkTime :: Date = ");
-  Serial.println(device_datenow);
-  
-  Serial.print("NetworkTime :: Time = ");
-  Serial.println(device_timenow);
-}
-
-String deviceTimeNow(){
-  return device_timenow;
-}
-
-String deviceDateNow(){
-  return device_datenow;
-}
 
 //------------------------------- Device Status -------------------------------//
 bool ESP32_DEVICE_STATUS( String statue, String mode_device ){
@@ -468,7 +395,7 @@ bool getCameraPicture(){
 
     // Sending Payload
     Serial.print("ESP32 :: Sending Payload...");
-    bool rstatus = ESP32_POST_HTTP( "http://camon.ap-1.evennode.com/v1/device/data", jsonVision );
+    bool rstatus = ESP32_POST_HTTP( "http://como.ap-1.evennode.com/v1/device/data", jsonVision );
     if( rstatus ){
       Serial.println("....OK");
     }else{
@@ -543,4 +470,78 @@ bool ESP32_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
     return false;
   }
   delay(1);
+}
+
+//--------------------------------- Sleeping Setup ---------------------------------//
+tmElements_t tm;
+void setupSleep( int timeSleep ){
+  // Ambil Sisa Detik untuk TIdur dari Waktu Sekarang
+  char* monthList[12] = {"Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember" };
+  Serial.print( "Time to Sleep : " ); Serial.print( timeSleep ); Serial.println( "s" ); 
+  //sendStatus( "Sleep(" + String(timeSleep) + "s)" ); 
+  
+  time_t nextMakeTime;
+  int ttS = timeSleep;
+  uint32_t rem = ttS%3600;
+  uint32_t addHour = ttS/3600;
+  uint32_t addMinute = rem/60;
+  uint32_t addSecond = rem%60;
+
+  tm.Hour = getValue( device_timenow, ':', 0 ).toInt() + addHour;
+  tm.Minute = getValue( device_timenow, ':', 1 ).toInt() + addMinute;
+  tm.Second = 0 + addSecond;
+  tm.Day = getValue( device_datenow, '/', 2 ).toInt();
+  tm.Month = getValue( device_datenow, '/', 1 ).toInt();
+  tm.Year = getValue( device_datenow, '/', 0 ).toInt() - 1970; // offset from 1970;
+  nextMakeTime = makeTime(tm); // convert time elements into time_t
+
+  Serial.print("Wake Up On : ");   
+  Serial.print(day(nextMakeTime));   Serial.print( " " ); Serial.print( monthList[month(nextMakeTime) - 1]); Serial.print( " " ); Serial.print(year(nextMakeTime));   
+  Serial.print( " @ " ); Serial.print(hour(nextMakeTime)); Serial.print( ":" ); Serial.print(minute(nextMakeTime)); Serial.print( ":" ); Serial.println(second(nextMakeTime));  
+  
+  uptime_seconds += local_time_seconds;
+  //disconnect WiFi as it's no longer needed
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  
+  esp_sleep_enable_timer_wakeup(timeSleep * uS_TO_S_FACTOR);
+  
+  Serial.println("SP32 to sleep for  " + String(timeSleep) + " Seconds");
+  Serial.println("Sleep : zZZZzzZZZZzzzZZZ");
+  
+  indicator_fast_blink( 3 );
+  Serial.flush(); 
+  esp_deep_sleep_start();
+}
+
+//--------------------------------- NetworkTime ---------------------------------//
+void setupDateTime(){
+  struct tm timeinfo;
+  while(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    delay(500);
+  }
+  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+
+  strftime(device_datenow,30, "%Y/%m/%d", &timeinfo); // 2020-01-25
+  strftime(device_timenow,20, "%H:%M:%S", &timeinfo); // 10:24:03
+  strftime(device_datetime,40, "%Y/%m/%d, %H:%M:%S", &timeinfo);
+  strftime(device_unique,20, "%H%M%S", &timeinfo); // 102403
+
+  Serial.print("NetworkTime :: DateTime = ");
+  Serial.println(device_datetime);
+  
+  Serial.print("NetworkTime :: Date = ");
+  Serial.println(device_datenow);
+  
+  Serial.print("NetworkTime :: Time = ");
+  Serial.println(device_timenow);
+}
+
+String deviceTimeNow(){
+  return device_timenow;
+}
+
+String deviceDateNow(){
+  return device_datenow;
 }
