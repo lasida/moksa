@@ -15,6 +15,9 @@ from helpers import *
 from database import Repository
 from estimation import CapacityEstimation
 from notification import WhatsAppAPI
+from engineio.payload import Payload
+
+Payload.max_decode_packets = 50
 
 import logging
 log = logging.getLogger('werkzeug')

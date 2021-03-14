@@ -34,7 +34,7 @@ class CapacityEstimation:
 
       # Counting Persentage
       self.percentage = self.blackPixel/self.imageResolution * 100
-      self.capacity = round(self.percentage, 0)
+      self.capacity = 100 - round(self.percentage, 0)
 
       cv2.putText(self.binary, "{}{}{}".format('Kapasitas : ', self.capacity, '%'), (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (60, 80, 20), 2, cv2.LINE_AA)
 

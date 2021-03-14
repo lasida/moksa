@@ -375,12 +375,12 @@ bool getCameraPicture(){
     doc["chip"] = String(chipid);
     doc["vision"] = chunkVision;
     doc["index"] = cIndex;
-      
+
     if( cIndex == parts ){
       doc["parity"] = "true";
       doc["chip"] = String(chipid);
-      doc["lat"]  = "-6.1954842666402";
-      doc["long"] = "106.63440971165635";
+      doc["lat"]  = "-6.195440";
+      doc["long"] = "106.634404";
       doc["batt"] = "100";
       doc["mode"] = "collect";
       doc["length"] = base64Image.length();
@@ -427,7 +427,7 @@ bool getCameraPicture(){
 bool ESP32_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
 {   
   //  btStop();
-  delay(1310);
+  delay(1234);
   
   // WIfi Connected -> Send Data to Server
   if(WiFi.status()== WL_CONNECTED){

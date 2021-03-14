@@ -120,6 +120,7 @@ unsigned long local_time_seconds;
 void setup()
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+  SerialBT.begin("ECOV-DEV"); // Init Bluetooth Device Name;
   ledcSetup(0, 5000, 13);
   ledcAttachPin(GPIO_LED, 0);
   indicator_fast_blink( 6 );
@@ -128,13 +129,12 @@ void setup()
   Serial.begin(19200); // Set ESP32 BaudRate
   Serial.println("AT+CSCLK=0");
   delay(1000);
-//  Serial.println("AT+CFUN=1,1");
+    //Serial.println("AT+CFUN=1,1");
   delay(1000);
   Serial.println("AT+BTPOWER=0"); // Disable Bluetooth SIM808
   delay(1000);
   Serial.println("AT+IPR=19200"); // Set SIM808 BaudRate
   delay(2000);
-  SerialBT.begin("ECOV-DEV"); // Init Bluetooth Device Name;
 
   // ----- Startup LED BLINK and Delay 5s ----- //
   pinMode(GPIO_FLASH, OUTPUT);
@@ -294,18 +294,16 @@ void gsmSetup() {
   SerialBT.println(")");
   gsm_signal = true;
 
-  delay(1000);
+  delay(3210);
   // --> Checking Network Registration for 5s
   NetworkRegistration network = sim800l->getRegistrationStatus();
   while (network != REGISTERED_HOME && network != REGISTERED_ROAMING) {
     SerialBT.print("SIM808 :: Network....");
     if ( network != REGISTERED_HOME && network != REGISTERED_ROAMING ) {
       SerialBT.println("....Not Registered !!!");
-      Serial.println("AT+CPOWD=1"); // Sleep SIM808
-      ESP.restart();
       indicator_error(); // Set Indicator Error
     }
-    delay(1000);
+    delay(4321);
   }
   indicator_clear();
   delay(300);

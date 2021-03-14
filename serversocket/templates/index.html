@@ -21,7 +21,7 @@
         <div class="container">
             <header>
                 <div class="col col-7">
-                    <h1>Monitoring Server</h1>
+                    <h1>Monitoring Kontainer Sampah - Dinas Lingkungan Hidup Kota Tangerang</h1>
                     <p style="margin:0;padding:0;margin-bottom: -5px;">Average Latency: <b><span id="ping-pong"></span>ms</b></p>
                 </div>
                 <div class="col col-3" >
@@ -54,10 +54,11 @@
 
         <script type="text/javascript" charset="utf-8">
             // Interactive
-            // $(document).on( "click", "#stream_db tr", function() {
-            //     $('#device-raw').attr( 'src', $(this).attr('raw') );
-            //     $('#device-estimation').attr( 'src', $(this).attr('estimation') );
-            // });
+            $(document).on( "click", "#stream_db tr", function() {
+                $('#device-raw').attr( 'src', $(this).attr('raw') );
+                $('#device-estimation').attr( 'src', $(this).attr('estimation') );
+                $('#device-capacity').text(  $(this).attr('capacity') + "%");
+            });
 
             function capitalizeFirstLetter(string) {
                 return string.charAt(0).toUpperCase() + string.slice(1);
@@ -154,7 +155,7 @@
                         setTimeout(function(){ 
                             $(".leaflet-marker-icon").remove();
                             $(".leaflet-popup").remove();
-                            map.setView([-6.171389, 106.640556], 11);
+                            map.setView([-6.171389, 106.640556], 13);
                         }, 5000);
                     }
                  });
@@ -200,14 +201,16 @@
     
                         $('#stream_db tbody tr').remove();
                         data.forEach( function( item, index) {
-                            var rawImageUrl = data[index].vision_raw ? data[index].vision_raw : '/static/img/notfound.jpg';
-                            var estimationImageUrl = data[index].estimation_vision ? data[index].estimation_vision : '/static/img/notfound.jpg';
+                            var rawImageUrl = item.raw ? item.raw : '/static/img/notfound.jpg';
+                            var estimationImageUrl = item.estimation ? item.estimation : '/static/img/notfound.jpg';
                             var deviceName = item.name;
                             var deviceBattery = item.battery;
                             var deviceTimeStamp = item.timestamp;
                             var deviceCoordinate = item.coordinate;
                             var deviceVision = item.vision;
-                            $('#stream_db tbody').append('<tr raw="'+ rawImageUrl +'" estimation="'+ estimationImageUrl +'"><td>' + deviceName +'</td><td class="small-hide">' + deviceCoordinate +'</td><td>'+ deviceBattery +'%</td><td class="small-hide">' + deviceVision +'</td><td><time class="timeago" datetime="'+ deviceTimeStamp +'">'+ deviceTimeStamp +'</time></td></tr>');
+                            let deviceCapacity = item.capacity;
+                            $('#stream_db tbody').append('<tr raw="'+ rawImageUrl +
+                            '" estimation="'+ estimationImageUrl +'" capacity="'+ deviceCapacity +'"><td>' + deviceName +'</td><td class="small-hide">' + deviceCoordinate +'</td><td>'+ deviceBattery +'%</td><td class="small-hide">' + deviceVision +'</td><td><time class="timeago" datetime="'+ deviceTimeStamp +'">'+ deviceTimeStamp +'</time></td></tr>');
                         });
                         $("time.timeago").timeago();
                     }
