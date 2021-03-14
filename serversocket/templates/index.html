@@ -22,29 +22,33 @@
             <header>
                 <div class="col col-7">
                     <h1>Monitoring Server</h1>
+                    <p style="margin:0;padding:0;margin-bottom: -5px;">Average Latency: <b><span id="ping-pong"></span>ms</b></p>
                 </div>
                 <div class="col col-3" >
-                    <p>Async mode is: <b>{{ async_mode }}</b></p>
-                    <p>Average Latency: <b><span id="ping-pong"></span>ms</b></p>
+                    <p>Async Mode is: <b>{{ async_mode }}</b></p>
                     <p>REST API : <strong id="inforest">Waiting...</strong></p>
                 </div>
             </header>
 
             <div class="row">
+                
                 <div class="col col-3">
-                    {% include "services/devices.html" %}
-                    {% include "services/notification.html" %}
+                    <!-- Call Estimation Template -->
+                    {% include "services/estimation.html" %}
                 </div>
+
+            
 
                 <div class="col col-7">
                     {% include "services/maps.html" %}
                     {% include "services/db.html" %}
                 </div>
-        
+
                 <div class="col col-3">
-                    <!-- Call Estimation Template -->
-                    {% include "services/estimation.html" %}
+                    {% include "services/devices.html" %}
+                    {% include "services/notification.html" %}
                 </div>
+        
             </div>
         </div>
 
@@ -201,9 +205,9 @@
                             var deviceName = item.name;
                             var deviceBattery = item.battery;
                             var deviceTimeStamp = item.timestamp;
-                            // var deviceCoordinate = item.coordinate;
-                            // var deviceVision = item.vision;
-                            $('#stream_db tbody').append('<tr raw="'+ rawImageUrl +'" estimation="'+ estimationImageUrl +'"><td>' + deviceName +'</td><td>'+ deviceBattery +'%</td><td><time class="timeago" datetime="'+ deviceTimeStamp +'">'+ deviceTimeStamp +'</time></td></tr>');
+                            var deviceCoordinate = item.coordinate;
+                            var deviceVision = item.vision;
+                            $('#stream_db tbody').append('<tr raw="'+ rawImageUrl +'" estimation="'+ estimationImageUrl +'"><td>' + deviceName +'</td><td class="small-hide">' + deviceCoordinate +'</td><td>'+ deviceBattery +'%</td><td class="small-hide">' + deviceVision +'</td><td><time class="timeago" datetime="'+ deviceTimeStamp +'">'+ deviceTimeStamp +'</time></td></tr>');
                         });
                         $("time.timeago").timeago();
                     }

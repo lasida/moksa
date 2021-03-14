@@ -28,15 +28,15 @@
                         <th>
                             Device
                         </th>
-                        <!-- <th>
+                        <th class="small-hide">
                             Location
-                        </th> -->
+                        </th>
                         <th>
                             Battery
                         </th>
-                        <!-- <th>
+                        <th class="small-hide">
                             Vision
-                        </th> -->
+                        </th>
                         <th>
                             DateTime
                         </th>
@@ -45,13 +45,13 @@
                 <tbody>
                     {% for item in stream_db %}
                     <tr{% if loop.index == 1 %} class="active" {% endif %}>
-                        <td>{{item.name}}</td>W
-                        <!-- <td>{{item.coordinate}}</td> -->
+                        <td>{{item.name}}</td>
+                        <td class="small-hide">{{item.coordinate}}</td>
                         <td>{{item.battery}}%</td>
-                        <!-- <td>{{item.vision}}</td> -->
+                        <td class="">{{item.vision}}</td>
                         <td>{{item.timestamp}}</td>
-                        </tr>
-                        {% endfor %}
+                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>

@@ -288,7 +288,7 @@ a{
 }
 
 .row {
-    display: flex;
+    /* display: flex; */
     flex-direction: column-reverse;
 }
 
@@ -320,4 +320,43 @@ fieldset legend {
 .text-left {
     text-align: left;
     margin-left: 5px;
+}
+
+.small-hide{
+    display: none;
+}
+
+@media (min-width:1025px) { /* big landscape tablets, laptops, and desktops */ 
+    body{
+        max-width: 100vw;
+        padding:15px 50px 0;
+    }
+
+    .container{
+        transform: translate(0, 20);
+    }
+
+    .row{
+        display: inherit;
+        clear: both;
+    }
+    .col.col-7 {
+        width: 70%;
+        float: left;
+        flex-direction: column-reverse;
+        display: flex;
+    }
+    .col.col-3 {
+        width: 30%;
+        float: right;
+    }
+    .small-hide{
+        display: block;
+    }
+    fieldset#stream_db {
+        max-height: 263px;
+    }
+    .grid-container{
+        max-height: 217px;
+    }
 }

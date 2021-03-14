@@ -178,10 +178,10 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
  * Sleep()
 */
 
-void setup()
+void setup()    
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
-  Serial.begin(115200);
+  Serial.begin(57600);
   
   // The chip ID is essentially its MAC address(length: 6 bytes).
   chipid = ESP.getEfuseMac();
@@ -243,7 +243,7 @@ void loop(){
   }else{
     //timeToSleep = getTimeLeft( timetoDecimal(device_timenow));
     //Serial.print( "Time to Decimal : " ); Serial.print( timeToSleep ); Serial.println( "s" ); 
-    timeToSleep = 30; // 5 minutes
+    timeToSleep = 600 ; // 5 minutes
     
     if( getCameraPicture() ){
       setupSleep(timeToSleep);
@@ -359,16 +359,16 @@ bool getCameraPicture(){
 
   // Header Data
   Serial.print("ESP32 :: Generating Payload...");
-  int parts = round(base64Image.length() / 5000);
+  int parts = round(base64Image.length() / 3000);
   String payloadID = String(chipid) + '-' + String(device_unique);
 
   // Vision Partial Sender
   int Index;
   int cIndex = 0;
-  for (Index = 0; Index < base64Image.length(); Index = Index+5000) {
+  for (Index = 0; Index < base64Image.length(); Index = Index+3000) {
     // Populate JSON
     Serial.print("ESP32 :: POST PARTIAL...");
-    String chunkVision = base64Image.substring(Index, Index+5000);
+    String chunkVision = base64Image.substring(Index, Index+3000);
     using SpiRamJsonDocument = BasicJsonDocument<SpiRamAllocator>;
     SpiRamJsonDocument doc(1048576);
     doc["id"]= payloadID;
@@ -379,8 +379,8 @@ bool getCameraPicture(){
     if( cIndex == parts ){
       doc["parity"] = "true";
       doc["chip"] = String(chipid);
-      doc["lat"]  = "-6.52151";
-      doc["long"] = "105.52151";
+      doc["lat"]  = "-6.1954842666402";
+      doc["long"] = "106.63440971165635";
       doc["batt"] = "100";
       doc["mode"] = "collect";
       doc["length"] = base64Image.length();
@@ -427,6 +427,7 @@ bool getCameraPicture(){
 bool ESP32_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
 {   
   //  btStop();
+  delay(1310);
   
   // WIfi Connected -> Send Data to Server
   if(WiFi.status()== WL_CONNECTED){

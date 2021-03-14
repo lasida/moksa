@@ -33,7 +33,7 @@ SERVERNAME = 'http://como.ap-1.evennode.com/'
 devices = {
     '951950972': "ESP-A",
     '805658940': "ESP-B",
-    '000000000': "ESP-C"
+    # '000000000': "ESP-C"
 }
 
 # -->  Registered User ( whatsapp : name )
@@ -209,7 +209,7 @@ def background_temps(duration, data):
 
                 # --> Saving Image to File
                 # os.chmod(filePath, 0o777)
-                with open(filePath, 'wb+') as f:
+                with open(filePath, 'wb') as f:
                     f.write(imageTemps)
                     
                 # -------------------------- Combining Part and Save Raw Image -------------------------- #
