@@ -120,25 +120,24 @@ unsigned long local_time_seconds;
 void setup()
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
-  SerialBT.begin("ECOV-DEV"); // Init Bluetooth Device Name;
-  ledcSetup(0, 5000, 13);
-  ledcAttachPin(GPIO_LED, 0);
-  indicator_fast_blink( 6 );
-  
   chipid = ESP.getEfuseMac();// get ChipID;
   Serial.begin(19200); // Set ESP32 BaudRate
-  Serial.println("AT+CSCLK=0");
-  delay(1000);
-    //Serial.println("AT+CFUN=1,1");
-  delay(1000);
+  SerialBT.begin("ECOV-DEV"); // Init Bluetooth Device Name;
+//  Serial.println("AT+CSCLK=0");
+//  delay(1000);
+//  Serial.println("AT+CFUN=1,1");
+//  delay(1000);
   Serial.println("AT+BTPOWER=0"); // Disable Bluetooth SIM808
   delay(1000);
   Serial.println("AT+IPR=19200"); // Set SIM808 BaudRate
-  delay(2000);
 
+  // ----- LED BLINK 10 Times ----- //
+  ledcSetup(0, 5000, 13);
+  ledcAttachPin(GPIO_LED, 0);
+  indicator_fast_blink( 10 );
   // ----- Startup LED BLINK and Delay 5s ----- //
   pinMode(GPIO_FLASH, OUTPUT);
-  pinMode(GPIO_VIBRATION, INPUT);
+  //pinMode(GPIO_VIBRATION, INPUT);
 
   // ----- Boot Count ----- //
   ++BOOT;
@@ -166,8 +165,8 @@ void setup()
   print_wakeup_reason();
 
   //Wake Up using Trigger | Vibration
-  print_GPIO_wake_up();
-  esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK, ESP_EXT1_WAKEUP_ANY_HIGH);
+  //  print_GPIO_wake_up();
+  //  esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK, ESP_EXT1_WAKEUP_ANY_HIGH);
 }
 
 
@@ -185,10 +184,10 @@ void loop() {
   SerialBT.println("Now Run Time : " + String(local_time_seconds) );
 
   //Online for 3 minutes and status gps false;
-  if (millis() > 180000 && status_gps == false ) {
-    SerialBT.println("3 Minutes Passed and GPS Failure...");
-    getPosition();
-  }
+//  if (millis() > 180000 && status_gps == false ) {
+//    SerialBT.println("3 Minutes Passed and GPS Failure...");
+//    getPosition();
+//  }
 
   //--------------------------------- Checking Time ---------------------------------//
   if ( !status_sim || !status_camera ) {
@@ -268,7 +267,7 @@ void gsmSetup() {
   indicator_clear();
 
   // Waiting for Signal
-  delay(3210);
+  delay(3333);
   indicator_clear();
 
   // --> Waiting GSM Signal
@@ -328,23 +327,40 @@ void gsmSetup() {
 }
 
 void gsmConnect() {
-  for (uint8_t i = 0; i < 5 && !sim_connected; i++) {
+  SerialBT.print( "SIM808 :: Connecting...." );
+  for(uint8_t i = 0; i < 10; i++) {
     delay(1000);
     sim_connected = sim800l->connectGPRS();
+    if( sim_connected ){
+      SerialBT.println("....OK");
+      getBattery();
+      delay(1000);
+      networkServer();
+      break;
+    }else{
+      SerialBT.println("....Failed");
+      indicator_error();
+      gsmConnect();
+      break;
+    }
   }
-
-  if (sim_connected) {
-    networkServer();
-    SerialBT.println("SIM808 :: GPRS Connecting .......OK !!!");
-    // --> Setup Battery
-    delay(500);
-    getBattery();
-    ESP32_DEVICE_STATUS("Online", "Collect");
-  } else {
-    SerialBT.println(F("GPRS not connected !"));
-    gsmConnect();
-  }
-
+//  for (uint8_t i = 0; i < 10&& !sim_connected; i++) {
+//    delay(1000);
+//    sim_connected = sim800l->connectGPRS();
+//    if (sim_connected) {
+//      networkServer();
+//      SerialBT.println("SIM808 :: GPRS Connecting .......OK !!!");
+//      // --> Setup Battery
+//      delay(500);
+//      getBattery();
+//      //ESP32_DEVICE_STATUS("Online", "Collect");
+//      break;
+//    } else {
+//      SerialBT.println(F("GPRS not connected !"));
+//      gsmConnect();
+//      break;
+//    }
+//  }
 }
 
 bool gsmDisconnect() {
@@ -370,15 +386,15 @@ bool gsmDisconnect() {
    Method :: POST Device Status
 */
 bool ESP32_DEVICE_STATUS( String statue, String mode_device ){
-//  SerialBT.println("POST :: Device Status");
-//  DynamicJsonDocument doc(100);
-//  doc["chip"] = String(chipid);
-//  doc["batt"] = device_battery;
-//  doc["status"] = statue; 
-//  doc["mode"] = mode_device;
-//  doc["uptime"] = int(rtc_time_seconds) + int(local_time_seconds);
-//  serializeJson(doc, jsonStatus);  
-//  bool rstatus = SIM808_POST_HTTP( "http://como.ap-1.evennode.com/v1/device/status", jsonStatus );
+  SerialBT.println("POST :: Device Status");
+  DynamicJsonDocument doc(100);
+  doc["chip"] = String(chipid);
+  doc["batt"] = device_battery;
+  doc["status"] = statue; 
+  doc["mode"] = mode_device;
+  doc["uptime"] = int(rtc_time_seconds) + int(local_time_seconds);
+  serializeJson(doc, jsonStatus);  
+  bool rstatus = SIM808_POST_HTTP( "http://como.ap-1.evennode.com/v1/device/status", jsonStatus );
 }
 
 /**
@@ -465,7 +481,6 @@ bool cameraCapture() {
   // -----------------------------> Flash OFF
 
   // Encoding to Base64 String
-  delay(1000);
   SerialBT.print("CAM :: Encode to Base64String...");
   char *input = (char *)fb->buf;
   char output[base64_enc_len(3)];
@@ -480,7 +495,6 @@ bool cameraCapture() {
   // Header Data
   SerialBT.println("ESP32 :: Generating Payload...");
   int parts = round(base64Image.length() / 1024);
-  String device_unique = "";
   String payloadID = String(chipid) + '-' + String(device_timeID);
 
   // Vision Partial Sender
@@ -489,8 +503,9 @@ bool cameraCapture() {
   int Index;
   int cIndex = 0;
 
-  for (Index = 0; Index < base64Image.length(); Index = Index + 1024) {
+  delay(5000);
 
+  for (Index = 0; Index < base64Image.length(); Index = Index + 1024) {
     // Populate JSON
     String chunkVision = base64Image.substring(Index, Index + 1024);
     using SpiRamJsonDocument = BasicJsonDocument<SpiRamAllocator>;
@@ -503,24 +518,32 @@ bool cameraCapture() {
     if ( cIndex == parts ) {
       doc["parity"] = "true";
       doc["chip"] = String(chipid);
-      doc["lat"]  = "-6.52151";
-      doc["long"] = "105.52151";
-      doc["batt"] = "100";
-      doc["mode"] = "charge";
+      doc["lat"]  = "-6.52151"; // getting data
+      doc["long"] = "105.52151"; // getting data
+      doc["batt"] = device_battery;
+      doc["mode"] = device_mode;
       doc["length"] = base64Image.length();
       doc["parts"] = parts;
     }
     doc["chunksize"] = chunkVision.length();
 
     serializeJson(doc, jsonVision);
+    Serial.println("... OK");  // Tambahkan ini untuk Fix Kirim Data sebagai Delay
+    Serial.print("Length Image : "); Serial.println( base64Image.length());  // Tambahkan ini untuk Fix Kirim Data sebagai Delay
     
     // Sending Payload
+    Serial.print("ESP32 :: Sending Payload...");
     bool rstatus = SIM808_POST_HTTP( "http://webhook.site/ef5e531d-48bd-4517-8d78-61137ff2040e", jsonVision );
     if ( rstatus ) {
       SerialBT.print("ESP32 :: POST HTTP (" ); SerialBT.print(cIndex); SerialBT.println(")");
+      Serial.println("....OK"); // Tambahkan ini untuk Fix Kirim Data sebagai Delay
     } else {
-      SerialBT.println("ESP32 :: POST HTTP....Failed");
-      
+      // Resend System
+      delay(1000);
+      bool resend = SIM808_POST_HTTP( "http://webhook.site/ef5e531d-48bd-4517-8d78-61137ff2040e", jsonVision );
+      if ( !resend ) {
+        SerialBT.println("ESP32 :: POST HTTP....Failed");
+      }
     }
     cIndex++;
 
@@ -561,12 +584,11 @@ bool SIM808_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
   
   // Check if connected, if not reset the module and setup the config again
   if (sim_connected) {
-    SerialBT.println(F("SIM800L :: GPRS Connected!"));
+    SerialBT.println(F("SIM808 :: GPRS Connected!"));
     uint16_t rc;
-
-    rc = sim800l->doPost(ENDPOINTS, CONTENT_TYPE, JsonDoc, 10000, 10000); // 20s Timeout
+    rc = sim800l->doPost(ENDPOINTS, CONTENT_TYPE, JsonDoc, 20000, 20000); // 20s Timeout
     if (rc == 200 || rc == 703 || rc == 705 ) {
-      SerialBT.println("SIM808 :: HTTP POST Success");
+      SerialBT.print("SIM808 :: HTTP POST Success ("); SerialBT.print(sim800l->getDataSizeReceived()); SerialBT.println(F(" bytes)"));
       return true;
     } else {
       SerialBT.print("SIM800L :: HTTP POST Error = ");
@@ -574,9 +596,10 @@ bool SIM808_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
       return false;
     }
   } else {
-    SerialBT.println(F("SIM800L :: GPRS Not Connected !"));
-    SerialBT.println(F("SIM800L :: Reset the module"));
-    //ESP.restart();
+    SerialBT.println(F("SIM808 :: GPRS Not Connected !"));
+    SerialBT.println(F("SIM808 :: Reset the module"));
+    delay(1000);
+    ESP.restart();
   }
 }
 
@@ -611,8 +634,7 @@ void goSleep( int timeSleep ) {
 
   esp_sleep_enable_timer_wakeup(timeSleep * uS_TO_S_FACTOR);
   SerialBT.println("ESP32 Sleep for  " + String(timeSleep) + " Seconds");
-  SerialBT.println("Tidurlah, malam terlalu malam");
-  SerialBT.println("Tidurlah, pagi terlalu pagi");
+  SerialBT.println("Sleep : zZZZzzZZZZzzzZZZ");
   Serial.println("AT+CSCLK=2"); // Sleep SIM808
 
   indicator_fast_blink( 3 );
@@ -623,7 +645,7 @@ void goSleep( int timeSleep ) {
 
 //--------------------------------- NetworkTime ---------------------------------//
 void networkServer() {
-  delay(3000);
+  delay(5000);
   String dataIn = "";
   String hasil = "";
   int i;
@@ -632,6 +654,7 @@ void networkServer() {
 
   while (Serial.available() != 0)
     dataIn += (char)Serial.read();
+  
   for ( i = 1; i < dataIn.length(); i++) {
     if (  dataIn[i] == '"' || (dataIn[i] == 'C')  || (dataIn[i] == 'L')  || (dataIn[i] == 'K')  || (dataIn[i] == ' ') ) {
     } else {
@@ -647,7 +670,10 @@ void networkServer() {
     }
   }
 
+  SerialBT.println(hasil);
+  SerialBT.println(getValue(hasil, ',', 0 ));
   device_datenow = getValue( getValue(hasil, ',', 0 ), ':', 1);
+  SerialBT.println(device_datenow);
   device_timenow = getValue( getValue(hasil, ',', 1 ), '+', 0);
   device_datetime = device_datenow + "," + device_timenow;
   device_timeID = getValue(device_timenow, ':', 0 ) + getValue(device_timenow, ':', 1 ) + getValue(device_timenow, ':', 2 );

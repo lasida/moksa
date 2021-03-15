@@ -181,7 +181,7 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
 void setup()    
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
-  Serial.begin(57600);
+  Serial.begin(19200);
   
   // The chip ID is essentially its MAC address(length: 6 bytes).
   chipid = ESP.getEfuseMac();
@@ -427,7 +427,7 @@ bool getCameraPicture(){
 bool ESP32_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
 {   
   //  btStop();
-  delay(1234);
+  delay(2345);
   
   // WIfi Connected -> Send Data to Server
   if(WiFi.status()== WL_CONNECTED){

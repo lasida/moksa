@@ -410,59 +410,6 @@ bool gsmDisconnect(){
   }
 }
 
-//--------------------------------- NetworkTime ---------------------------------//
-//void deviceNetworkTime(){
-//  if( GSM_Connect() ){
-//    deviceNetworkServer(); // Get Time by SIM800L
-//  }else{
-//    GSM_Connect(); // Reconnect GSM
-//  }
-//}
-//
-//void deviceNetworkServer(){
-//  String dataIn = "";
-//  String hasil = "";
-//  int i;
-//  Serial.println("AT+CCLK?"); delay(2000);
-//  
-//  while(Serial.available()!=0)
-//    dataIn += (char)Serial.read();
-//    for( i=1; i< dataIn.length(); i++){
-//        if(  dataIn[i] == '"' || (dataIn[i] == 'C')  || (dataIn[i] == 'L')  || (dataIn[i] == 'K')  || (dataIn[i] == ' ') ){
-//        }else{
-//            hasil += dataIn[i];
-//        }
-//    }
-//
-//    for (int i = 0; i < hasil.length(); i++) {
-//      if (hasil.substring(i, i+1) == ",") {
-//        device_datenow = hasil.substring(0, i);
-//        device_timenow= hasil.substring(i+1);
-//        break;
-//      }
-//    }
-//
-//  device_datenow = getValue( getValue(hasil, ',', 0 ), ':', 1);
-//  device_timenow = getValue( getValue(hasil, ',', 1 ), '+', 0);
-//  device_datetime = device_datenow + "," + device_timenow;
-//      
-//  SerialBT.print("NetworkTime :: DateTime = ");
-//  SerialBT.println(device_datetime);
-//  
-//  SerialBT.print("NetworkTime :: Date = ");
-//  SerialBT.println(device_datenow);
-//  
-//  SerialBT.print("NetworkTime :: Time = ");
-//  SerialBT.println(device_timenow);
-//}
-
-//String deviceTimeNow(){
-//  return device_timenow;
-//}
-//
-//String deviceDateNow(){
-//  return device_datenow;
-//}
 
 /**
  * Method :: POST Device Status  
@@ -623,7 +570,7 @@ bool cameraCapture(){
 
     // Sending Payload
     Serial.print("ESP32 :: Sending Payload...");
-    bool rstatus = SIM808_POST_HTTP( "http://webhook.site/ef5e531d-48bd-4517-8d78-61137ff2040e", jsonVision );
+    bool rstatus = SIM808_POST_HTTP( "http://como.ap-1.evennode.com/v1/device/data", jsonVision );
     if( rstatus ){
       Serial.println("....OK");
     }else{

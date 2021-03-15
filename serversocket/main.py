@@ -214,6 +214,8 @@ def background_temps(duration, data):
                 # os.chmod(filePath, 0o777)
                 with open(filePath, 'wb') as f:
                     f.write(imageTemps)
+
+                # Checking Image is Right -> Vision Failed Status
                     
                 # -------------------------- Combining Part and Save Raw Image -------------------------- #
 
