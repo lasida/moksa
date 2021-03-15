@@ -156,7 +156,7 @@
                             $(".leaflet-marker-icon").remove();
                             $(".leaflet-popup").remove();
                             map.setView([-6.171389, 106.640556], 13);
-                        }, 5000);
+                        }, 10000);
                     }
                  });
 
@@ -180,7 +180,7 @@
                     setTimeout(function(){ 
                         $( '#notification #' + phone ).removeClass('on');
                         $( '#notification #' + phone + ' .status' ).text("-");
-                    }, 6000);
+                    }, 10000);
                 });
                 
 
@@ -226,7 +226,7 @@
 
                     setTimeout(function(){ 
                         $("#inforest").text("Waiting...");
-                    }, 4000);
+                    }, 2000);
                 });
             });
         </script>

@@ -159,6 +159,7 @@ def device_data():
     thread = Thread(target=background_temps, args=(1, data))
     thread.daemon = True
     thread.start()
+    socketio.emit('incoming_data', "Incoming Data...")
     return "Data Submited...", 200
 # ---> END
 
@@ -317,7 +318,7 @@ def background_temps(duration, data):
             else:
                 # Checking Index and Part Id Not Same
                 db.pushTemp(json.dumps(data))
-                socketio.emit('incoming_data', "Incoming Data...")
+                socketio.emit('incoming_data', "Save to Temps..")
                 print( "Submitted to Temps" )
                 
         else:

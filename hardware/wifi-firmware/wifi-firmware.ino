@@ -126,16 +126,19 @@ void WiFiInit() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   Serial.print("Connecting to WiFi ..");
+
   int try_connect = 0;
   while(WiFi.waitForConnectResult() != WL_CONNECTED){      
     Serial.print(".");
-    if( try_connect > 3 ){
+    indicator_error();
+    if( try_connect > 2 ){
       ESP.restart();
     }
     try_connect++;
-    delay(1000);
+    delay(500);
   }
 
+  indicator_clear();
 }
 
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
@@ -181,7 +184,7 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
 void setup()    
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
-  Serial.begin(19200);
+  Serial.begin(115200);
   
   // The chip ID is essentially its MAC address(length: 6 bytes).
   chipid = ESP.getEfuseMac();
@@ -204,7 +207,8 @@ void setup()
   WiFi.onEvent(WiFiStationConnected, SYSTEM_EVENT_STA_CONNECTED);
   WiFi.onEvent(WiFiGotIP, SYSTEM_EVENT_STA_GOT_IP);
   WiFi.onEvent(WiFiStationDisconnected, SYSTEM_EVENT_STA_DISCONNECTED);   
-
+  indicator_clear();
+   
   ESP32_DEVICE_STATUS("collect", "online");
   // --> Setup Camera
   setupCamera();
@@ -323,9 +327,7 @@ void setupCamera(){
 
 int errCount = 0;
 bool getCameraPicture(){
-  if( errCount > 3 ){
-    ESP.restart();
-  }
+
   Serial.print("CAM :: Take Photo...");
   
   // Flash ON
@@ -394,6 +396,10 @@ bool getCameraPicture(){
 
     Serial.print("Length Image : "); Serial.println( base64Image.length());
 
+    if( errCount > 3 ){
+      ESP.restart();
+    }
+    
     // Sending Payload
     Serial.print("ESP32 :: Sending Payload...");
     bool rstatus = ESP32_POST_HTTP( "http://como.ap-1.evennode.com/v1/device/data", jsonVision );
@@ -427,13 +433,13 @@ bool getCameraPicture(){
 bool ESP32_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
 {   
   //  btStop();
-  delay(2345);
+   indicator_fast_blink( 2 );
   
   // WIfi Connected -> Send Data to Server
   if(WiFi.status()== WL_CONNECTED){
     unsigned long start = micros();
    
-    http.setTimeout(10000);
+    http.setTimeout(30000);
     http.begin( ENDPOINTS );
 
     http.addHeader("Connection", "keep-alive");
@@ -442,6 +448,7 @@ bool ESP32_POST_HTTP( char* ENDPOINTS, char* JsonDoc)
     http.addHeader("Accept-Encoding", "gzip, deflate");
     http.addHeader("Content-Length", String(sizeof(jsonVision)) );
     int httpCode = http.POST(JsonDoc);
+
 
     if( httpCode == 0 || httpCode > 0 ){
       String response = http.getString(); 
@@ -508,6 +515,7 @@ void setupSleep( int timeSleep ){
   //disconnect WiFi as it's no longer needed
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
+  delay(2000);
   
   esp_sleep_enable_timer_wakeup(timeSleep * uS_TO_S_FACTOR);
   

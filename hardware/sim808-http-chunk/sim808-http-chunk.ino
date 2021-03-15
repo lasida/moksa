@@ -554,8 +554,8 @@ bool cameraCapture(){
     if( cIndex == parts ){
       doc["parity"] = "true";
       doc["chip"] = String(chipid);
-      doc["lat"]  = "-6.52151";
-      doc["long"] = "105.52151";
+      doc["lat"]  = "-6.155873";
+      doc["long"] = "106.629614";
       doc["batt"] = "100";
       doc["mode"] = "charge";
       doc["length"] = base64Image.length();

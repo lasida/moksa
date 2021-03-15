@@ -36,7 +36,7 @@
 //Connection
 #include "BluetoothSerial.h"
 #include "SIM800L.h"
-//#include <DFRobot_sim808.h>
+#include <DFRobot_sim808.h>
 
 // GPRS APN
 const char APN[] = "telkomsel";
@@ -78,7 +78,7 @@ const char DEVICE_DATA[] = "c98b5f5e-2765-470c-a788-f095697c1070";
 // Object Initialize
 BluetoothSerial SerialBT;
 SIM800L* sim800l;
-//DFRobot_SIM808 sim808(&Serial);
+DFRobot_SIM808 sim808(&Serial);
 
 // Set Flag Internet Connected
 uint32_t chipid;
@@ -94,7 +94,7 @@ double device_lat;
 double device_long;
 
 int device_battery;
-String device_mode;
+String device_mode = "collect";
 
 //Post Temp
 char jsonVision[30000];
@@ -117,16 +117,18 @@ RTC_DATA_ATTR unsigned long rtc_time_seconds = 0;
 unsigned long local_time_seconds;
 
 //============================== SETUP ============================== //
+bool gsm_wiring = false;
+
 void setup()
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
   chipid = ESP.getEfuseMac();// get ChipID;
   Serial.begin(19200); // Set ESP32 BaudRate
   SerialBT.begin("ECOV-DEV"); // Init Bluetooth Device Name;
-//  Serial.println("AT+CSCLK=0");
-//  delay(1000);
-//  Serial.println("AT+CFUN=1,1");
-//  delay(1000);
+  Serial.println("AT+CSCLK=0");
+  delay(1000);
+  Serial.println("AT+CFUN=1,1");
+  delay(1000);
   Serial.println("AT+BTPOWER=0"); // Disable Bluetooth SIM808
   delay(1000);
   Serial.println("AT+IPR=19200"); // Set SIM808 BaudRate
@@ -144,14 +146,33 @@ void setup()
   SerialBT.println("Boot Number: " + String(BOOT));
   SerialBT.println("Uptime : " + String(rtc_time_seconds));
 
-  // ----- Setup SIM808 using SIM800L Library and Disable Sleep Mode via At Command ----- //
+  // --> Checking Wiring SIM800L
+  SerialBT.println(F("SIM808 :: Setup !!!"));
   sim800l = new SIM800L((Stream *)&Serial );
-  delay(500);
-  gsmSetup();
+  
+  // --> Checking Module Ready
+  while (!sim800l->isReady() ) {
+    indicator_error(); // Set Indicator Error
+    SerialBT.println("SIM808 :: Check Wiring.......Not Detected !!!");
+    delay(1000);
+  }
+
+  SerialBT.println("SIM808 :: Check Wiring.......OK !!!");
+  gsm_wiring = true;
+  indicator_clear();
 
   // --> Setup GPS
-  //  delay(500);
-  //  gpsSetup();
+//  delay(500);
+//  gpsSetup();
+//
+//  while( ! getPosition() ){
+//      delay(1000);
+//  }
+//  SerialBT.println("GPS OK");
+  
+  // ----- GSM Setup ----- //
+  delay(500);
+  gsmSetup();
 
   // --> Setup Camera
   delay(500);
@@ -199,7 +220,6 @@ void loop() {
     goSleep(timeToSleep);
   }
 
-  //getPosition();
   SerialBT.println("ESP32 :: " + String(chipid) + " Setup Done !!!");
   delay(1000);
 }
@@ -215,29 +235,42 @@ void loop() {
    Latitude
 */
 void gpsSetup() {
-//  if ( sim808.attachGPS() ) {
-//    SerialBT.println("SIM808 :: GPS Power Success");
-//    status_gps = true;
-//  } else {
-//    indicator_error(); // Set Indicator Error
-//    SerialBT.println("SIM808 :: GPS Power Failure");
-//    status_gps = false;
-//  }
+  if ( sim808.attachGPS() ) {
+    SerialBT.println("SIM808 :: GPS Power Success");
+    status_gps = true;
+  } else {
+    indicator_error(); // Set Indicator Error
+    SerialBT.println("SIM808 :: GPS Power Failure");
+    status_gps = false;
+  }
 }
 
 bool getPosition() {
-//  if (sim808.getGPS()) {
-//    SerialBT.print("latitude :");
-//    SerialBT.println(sim808.GPSdata.lat);
-//    device_lat = sim808.GPSdata.lat;
-//    SerialBT.print("longitude :");
-//    SerialBT.println(sim808.GPSdata.lon);
-//    device_long = sim808.GPSdata.lon;
-//    SerialBT.println( "GPS :: OK !!!" );
-//    sim808.detachGPS();
-//  } else {
-//    SerialBT.println("GPS Low Signal");
-//  }
+  SerialBT.print("latitude :");
+  SerialBT.println(sim808.GPSdata.lat);
+  SerialBT.print("longitude :");
+  SerialBT.println(sim808.GPSdata.lon);
+
+  while (Serial.available() != 0)
+    SerialBT.println(Serial.read());
+
+    
+  if (sim808.getGPS()) {
+    SerialBT.print("latitude :");
+    SerialBT.println(sim808.GPSdata.lat);
+    device_lat = sim808.GPSdata.lat;
+    SerialBT.print("longitude :");
+    SerialBT.println(sim808.GPSdata.lon);
+    device_long = sim808.GPSdata.lon;
+    SerialBT.println( "GPS :: OK !!!" );
+    sim808.detachGPS();
+    indicator_blink();
+    return true;
+  } else {
+    indicator_error();
+    SerialBT.println("GPS Low Signal");
+    return false;
+  }
 }
 
 /**
@@ -247,29 +280,13 @@ bool getPosition() {
    Network Registration
    Setup APN
 */
-bool gsm_wiring = false;
 bool gsm_signal = false;
 bool gsm_registered = false;
 
 void gsmSetup() {
-  // --> Checking Wiring SIM800L
-  SerialBT.println(F("SIM808 :: Setup !!!"));
-
-  // --> Checking Module Ready for 5s
-  while (!sim800l->isReady() ) {
-    indicator_error(); // Set Indicator Error
-    SerialBT.println("SIM808 :: Check Wiring.......Not Detected !!!");
-    delay(1000);
-  }
-
-  SerialBT.println("SIM808 :: Check Wiring.......OK !!!");
-  gsm_wiring = true;
-  indicator_clear();
-
   // Waiting for Signal
   delay(3333);
-  indicator_clear();
-
+  
   // --> Waiting GSM Signal
   while (!sim800l->getSignal()) {
     SerialBT.println("SIM808 :: Signal not detected !!!");
@@ -344,23 +361,6 @@ void gsmConnect() {
       break;
     }
   }
-//  for (uint8_t i = 0; i < 10&& !sim_connected; i++) {
-//    delay(1000);
-//    sim_connected = sim800l->connectGPRS();
-//    if (sim_connected) {
-//      networkServer();
-//      SerialBT.println("SIM808 :: GPRS Connecting .......OK !!!");
-//      // --> Setup Battery
-//      delay(500);
-//      getBattery();
-//      //ESP32_DEVICE_STATUS("Online", "Collect");
-//      break;
-//    } else {
-//      SerialBT.println(F("GPRS not connected !"));
-//      gsmConnect();
-//      break;
-//    }
-//  }
 }
 
 bool gsmDisconnect() {
@@ -518,8 +518,8 @@ bool cameraCapture() {
     if ( cIndex == parts ) {
       doc["parity"] = "true";
       doc["chip"] = String(chipid);
-      doc["lat"]  = "-6.52151"; // getting data
-      doc["long"] = "105.52151"; // getting data
+      doc["lat"]  = "-6.155873";
+      doc["long"] = "106.629614";
       doc["batt"] = device_battery;
       doc["mode"] = device_mode;
       doc["length"] = base64Image.length();
@@ -533,14 +533,14 @@ bool cameraCapture() {
     
     // Sending Payload
     Serial.print("ESP32 :: Sending Payload...");
-    bool rstatus = SIM808_POST_HTTP( "http://webhook.site/ef5e531d-48bd-4517-8d78-61137ff2040e", jsonVision );
+    bool rstatus = SIM808_POST_HTTP( "http://como.ap-1.evennode.com/v1/device/data", jsonVision );
     if ( rstatus ) {
       SerialBT.print("ESP32 :: POST HTTP (" ); SerialBT.print(cIndex); SerialBT.println(")");
       Serial.println("....OK"); // Tambahkan ini untuk Fix Kirim Data sebagai Delay
     } else {
       // Resend System
       delay(1000);
-      bool resend = SIM808_POST_HTTP( "http://webhook.site/ef5e531d-48bd-4517-8d78-61137ff2040e", jsonVision );
+      bool resend = SIM808_POST_HTTP( "http://como.ap-1.evennode.com/v1/device/data", jsonVision );
       if ( !resend ) {
         SerialBT.println("ESP32 :: POST HTTP....Failed");
       }
@@ -649,12 +649,13 @@ void networkServer() {
   String dataIn = "";
   String hasil = "";
   int i;
-  Serial.flush();
+
   Serial.println("AT+CCLK?"); delay(2000);
 
   while (Serial.available() != 0)
     dataIn += (char)Serial.read();
-  
+
+  dataIn = getValue(dataIn, 'T', 1 );
   for ( i = 1; i < dataIn.length(); i++) {
     if (  dataIn[i] == '"' || (dataIn[i] == 'C')  || (dataIn[i] == 'L')  || (dataIn[i] == 'K')  || (dataIn[i] == ' ') ) {
     } else {
@@ -670,10 +671,7 @@ void networkServer() {
     }
   }
 
-  SerialBT.println(hasil);
-  SerialBT.println(getValue(hasil, ',', 0 ));
   device_datenow = getValue( getValue(hasil, ',', 0 ), ':', 1);
-  SerialBT.println(device_datenow);
   device_timenow = getValue( getValue(hasil, ',', 1 ), '+', 0);
   device_datetime = device_datenow + "," + device_timenow;
   device_timeID = getValue(device_timenow, ':', 0 ) + getValue(device_timenow, ':', 1 ) + getValue(device_timenow, ':', 2 );
@@ -741,7 +739,7 @@ void getBattery()
     avgRealVolt = avgRealVolt + tempBattReal[i];
 
     // Calculate Capacity with Threshold
-    float Vmin = 7.6; // 7.4 lowest
+    float Vmin = 7.8; // 7.4 lowest
     float Vmax = 8.2; // 8.4 highest
     batt = ((realvolt - Vmin) / (Vmax - Vmin)) * 100;
     if (batt > 100)
