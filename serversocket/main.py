@@ -213,7 +213,7 @@ def background_temps(duration, data):
 
                 # --> Saving Image to File
                 # os.chmod(filePath, 0o777)
-                with open(filePath, 'w+b') as f:
+                with open(filePath, 'wb') as f:
                     f.write(imageTemps)
                 # with open(filePath, 'wb') as f:
                 #     f.write(imageTemps)
@@ -261,8 +261,8 @@ def background_temps(duration, data):
                     if capacity > 1:
                         listMonths = [ "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
                         notify = WhatsAppAPI("abfb0642e231eb292355a8f28e14e9cd")
-                        mediaMessage = "🔔 MOKSA Notification !!!\n Kontainer " + devices[chip] + "\nKapasitas : "+ str(capacity) +"%" + "\nKoordinat : " + coordinate + "\nBaterai : " + str(battery) + "%" + "\nTanggal : " + timeWIB(datetime.now(), "%d") + " " +  listMonths[int(timeWIB(datetime.now(), "%m")) -1 ]  + " " + timeWIB(datetime.now(), "%Y") + " " + timeWIB(datetime.now(), "%H:%M:%S") + "\nMaps : https://www.google.com/maps/search/" + str(coordinate);
-                        mediaUrl = "https://biocompositescc.com/wp-content/uploads/2019/04/icompology300x150.png" #str(SERVERNAME) + filePath
+                        mediaMessage = "🔔 MOKSA Notification !!!\nKontainer " + devices[chip] + "\nKapasitas : "+ str(capacity) +"%" + "\nKoordinat : " + coordinate + "\nBaterai : " + str(battery) + "%" + "\nTanggal : " + timeWIB(datetime.now(), "%d") + " " +  listMonths[int(timeWIB(datetime.now(), "%m")) -1 ]  + " " + timeWIB(datetime.now(), "%Y") + " " + timeWIB(datetime.now(), "%H:%M:%S") + "\nMaps : https://www.google.com/maps/search/" + str(coordinate);
+                        mediaUrl = str(SERVERNAME) + filePath #"https://biocompositescc.com/wp-content/uploads/2019/04/icompology300x150.png" 
                         notify.send_media( "628561655028", mediaMessage, mediaUrl, "image")
 
                         socketio.emit('notification_status', "628561655028" )

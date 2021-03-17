@@ -21,8 +21,8 @@
         <div class="container">
             <header>
                 <div class="col col-7">
-                    <!-- <h1>Monitoring Kontainer Sampah - Dinas Lingkungan Hidup Kota Tangerang</h1> -->
-                    <h1>MOKONDO - Monitoring Kontainer Doang </h1>
+                    <h1>Monitoring Kontainer Sampah - Dinas Lingkungan Hidup Kota Tangerang</h1>
+                    <!-- <h1>MOKONDO - Monitoring Kontainer Doang </h1> -->
                     <p style="margin:0;padding:0;margin-bottom: -5px;">Average Latency: <b><span id="ping-pong"></span>ms</b></p>
                 </div>
                 <div class="col col-3" >
@@ -59,6 +59,8 @@
                 $('#device-raw').attr( 'src', $(this).attr('raw') );
                 $('#device-estimation').attr( 'src', $(this).attr('estimation') );
                 $('#device-capacity').text(  $(this).attr('capacity') + "%");
+                // Scroll Top
+                $("body").scrollTop();
             });
 
             function capitalizeFirstLetter(string) {
@@ -142,7 +144,7 @@
 
 
                         // Rendering Marker
-                        L.marker(data.coordinate.split(","), { id : "satu", 
+                        L.marker(data.coordinate.split(","), { id : data.id,  
                             icon: L.icon({
                                 iconUrl: 'https://i.ibb.co/G3Kt0Zy/ezgif-com-gif-maker.gif',
                                 popupAnchor: [15, 18],
