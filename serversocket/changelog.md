@@ -33,3 +33,6 @@
 
 0.0.9 - 13 March 2021
 * Add : Desktop Display
+
+0.0.10 - 17 March 2021
+* Fix : WhatsApp Notification

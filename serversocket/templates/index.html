@@ -21,7 +21,8 @@
         <div class="container">
             <header>
                 <div class="col col-7">
-                    <h1>Monitoring Kontainer Sampah - Dinas Lingkungan Hidup Kota Tangerang</h1>
+                    <!-- <h1>Monitoring Kontainer Sampah - Dinas Lingkungan Hidup Kota Tangerang</h1> -->
+                    <h1>MOKONDO - Monitoring Kontainer Doang </h1>
                     <p style="margin:0;padding:0;margin-bottom: -5px;">Average Latency: <b><span id="ping-pong"></span>ms</b></p>
                 </div>
                 <div class="col col-3" >
@@ -141,20 +142,20 @@
 
 
                         // Rendering Marker
-                        L.marker(data.coordinate.split(","), {
+                        L.marker(data.coordinate.split(","), { id : "satu", 
                             icon: L.icon({
-                                iconUrl: 'https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/120/docomo/205/large-red-circle_1f534.png',
+                                iconUrl: 'https://i.ibb.co/G3Kt0Zy/ezgif-com-gif-maker.gif',
                                 popupAnchor: [15, 18],
                                 className: 'redIcon'
                             })
-                        }).bindPopup('<a href="">' + data.name +'</a>').addTo(map);
+                        }).bindPopup('<a href="">Kontainer ' + data.name +'</a>').addTo(map);
                         setIconSize();
                         centerLeafletMapOnMarker( map, data.coordinate.split(",") );
 
 
                         setTimeout(function(){ 
-                            $(".leaflet-marker-icon").remove();
-                            $(".leaflet-popup").remove();
+                            // $(".leaflet-marker-icon").remove();
+                            // $(".leaflet-popup").remove();
                             map.setView([-6.171389, 106.640556], 13);
                         }, 10000);
                     }

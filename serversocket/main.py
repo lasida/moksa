@@ -89,7 +89,7 @@ def pong_py():
 def startup_refresh():
     socketio.emit('latest_estimation', parse_json(db.get_latest()) )
     socketio.emit('refresh_data', parse_json(db.get_all()) )
-    
+         
 # OnOnnect
 @socketio.event
 def connect():
@@ -168,7 +168,7 @@ def background_temps(duration, data):
 
         payloadID = isset( data, "id" )
         chip = isset( data, "chip" )
-        coordinate = isset( data, "lat" ) + ',' + isset( data, "long" )
+        coordinate = str(isset( data, "lat" )) + ',' + str(isset( data, "long" ))
         battery = isset( data, "batt", "int")
         mode = isset( data, "mode" )
         parts = isset( data, "parts" , "int")
@@ -197,8 +197,8 @@ def background_temps(duration, data):
                 # Document Temps + Parity Vision
                 visionTemps += vision
 
-                today = convert_time_to_wib(datetime.today(), "%Y%m%d" )
-                now = convert_time_to_wib(datetime.now(), '%H%M%S' )
+                today = timeWIB(datetime.today(), "%Y%m%d" )
+                now = timeWIB(datetime.now(), '%H%M%S' )
 
                 # Base64toImage -> UrlDecode -> Reconstruction
                 visionTemps = requests.utils.unquote(visionTemps)
@@ -213,8 +213,10 @@ def background_temps(duration, data):
 
                 # --> Saving Image to File
                 # os.chmod(filePath, 0o777)
-                with open(filePath, 'wb') as f:
+                with open(filePath, 'w+b') as f:
                     f.write(imageTemps)
+                # with open(filePath, 'wb') as f:
+                #     f.write(imageTemps)
 
                 # Checking Image is Right -> Vision Failed Status
                     
@@ -256,22 +258,14 @@ def background_temps(duration, data):
 
             
                     # -------------------------- NOTIFICATION -------------------------- #
-                    if capacity > 10:
+                    if capacity > 1:
+                        listMonths = [ "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+                        notify = WhatsAppAPI("abfb0642e231eb292355a8f28e14e9cd")
+                        mediaMessage = "🔔 MOKSA Notification !!!\n Kontainer " + devices[chip] + "\nKapasitas : "+ str(capacity) +"%" + "\nKoordinat : " + coordinate + "\nBaterai : " + str(battery) + "%" + "\nTanggal : " + timeWIB(datetime.now(), "%d") + " " +  listMonths[int(timeWIB(datetime.now(), "%m")) -1 ]  + " " + timeWIB(datetime.now(), "%Y") + " " + timeWIB(datetime.now(), "%H:%M:%S") + "\nMaps : https://www.google.com/maps/search/" + str(coordinate);
+                        mediaUrl = "https://biocompositescc.com/wp-content/uploads/2019/04/icompology300x150.png" #str(SERVERNAME) + filePath
+                        notify.send_media( "628561655028", mediaMessage, mediaUrl, "image")
+
                         socketio.emit('notification_status', "628561655028" )
-
-                    #     listMonths = [ "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-
-                    #     notify = WhatsAppAPI("a316acb293bb464e3e884c24923581b7")
-                    #     notify.send_text( "628561655028", "COMO - Estimation Volume Container")
-                    #     notify.send_media( "628561655028", "Device ::" + devices[chip] +
-                    #     "\nKapasitas : "+ capacity +"%" +
-                    #     "\nKoordinat : " + coordinate +
-                    #     "\nBaterai : " + battery + "%" +
-                    #     "\nTanggal : " + timeWIB(datetime.now()).strftime("%d") + " " +  listMonths[int(timeWIB(datetime.now()).strftime("%m")) -1 ]  + " " + timeWIB(datetime.now()).strftime("%Y") + " " + local_dt.now().strftime("%H:%M:%S") +
-                    #     "\nMaps : " + 'https://www.google.com/maps/search/' + coordinate, 
-                    #     SERVERNAME + fileResult, "image")
-
-         
                         ## SOCKET PUSH
                     # -------------------------- NOTIFICATION -------------------------- #
 
@@ -290,7 +284,7 @@ def background_temps(duration, data):
                         "capacity"              : capacity,
                         "date"                  : today,
                         "time"                  : now,
-                        "timestamp"             : convert_time_to_wib(datetime.now(), "%Y-%m-%d %H:%M:%S")
+                        "timestamp"             : timeWIB(datetime.now(), "%Y-%m-%d %H:%M:%S")
                     }
 
                 
