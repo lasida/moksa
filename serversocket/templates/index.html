@@ -22,7 +22,6 @@
             <header>
                 <div class="col col-7">
                     <h1>Monitoring Kontainer Sampah - Dinas Lingkungan Hidup Kota Tangerang</h1>
-                    <!-- <h1>MOKONDO - Monitoring Kontainer Doang </h1> -->
                     <p style="margin:0;padding:0;margin-bottom: -5px;">Average Latency: <b><span id="ping-pong"></span>ms</b></p>
                 </div>
                 <div class="col col-3" >
@@ -144,7 +143,7 @@
 
 
                         // Rendering Marker
-                        L.marker(data.coordinate.split(","), { id : data.id,  
+                        L.marker(data.coordinate.split(","), { 'id' : data.id,  
                             icon: L.icon({
                                 iconUrl: 'https://i.ibb.co/G3Kt0Zy/ezgif-com-gif-maker.gif',
                                 popupAnchor: [15, 18],

@@ -16,6 +16,7 @@ from database import Repository
 from estimation import CapacityEstimation
 from notification import WhatsAppAPI
 from engineio.payload import Payload
+from decimal import Decimal
 
 Payload.max_decode_packets = 50
 
@@ -226,41 +227,12 @@ def background_temps(duration, data):
                     estimation = CapacityEstimation( filePath, chip, today, now, app )
                     capacity = estimation.getCapacity()
                     fileResult = estimation.getFilename()
-                    # -------------------------- OPENCV -------------------------- #
-                    # Read Image
-                    # raw = cv2.imread(filePath)
 
-                    # # Convert RGB to GRAYSCALE
-                    # colorspace = cv2.cvtColor(raw, cv2.COLOR_RGB2GRAY)
-
-                    # # Segmentation using Threshold
-                    # _, binary = cv2.threshold(colorspace, 30, 255, cv2.THRESH_BINARY_INV)
-
-                    # imageWidth = binary.shape[0] #width
-                    # imageHeight = binary.shape[1] #height
-                    # imageResolution = imageWidth * imageHeight
-
-                    # blackPixel = imageResolution - cv2.countNonZero(binary)
-
-                    # # Counting Persentage
-                    # percentage = blackPixel/imageResolution * 100
-                    # capacity = round(percentage, 0)
-
-                    # cv2.putText(binary, "{}{}{}".format('Kapasitas : ', capacity, '%'), (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (60, 80, 20), 2, cv2.LINE_AA)
-
-                    # if not os.path.isdir("static/results/" + chip + '/' + today + '/'):
-                    #     os.makedirs("static/results/" + chip + '/' + today + '/', 755, exist_ok=True)
-
-                    # fileResult = "static/results/" + chip + '/' + today + '/' + now + '-est.jpg'
-                    # cv2.imwrite(fileResult, binary)
-
-                    # -------------------------- OPENCV -------------------------- #
-
-            
                     # -------------------------- NOTIFICATION -------------------------- #
-                    if capacity > 1:
+                    if Decimal(capacity) > 1:
                         listMonths = [ "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
                         notify = WhatsAppAPI("abfb0642e231eb292355a8f28e14e9cd")
+                        notify.send_text( "628561655028", "Masuk Pak Eko" )
                         mediaMessage = "🔔 MOKSA Notification !!!\nKontainer " + devices[chip] + "\nKapasitas : "+ str(capacity) +"%" + "\nKoordinat : " + coordinate + "\nBaterai : " + str(battery) + "%" + "\nTanggal : " + timeWIB(datetime.now(), "%d") + " " +  listMonths[int(timeWIB(datetime.now(), "%m")) -1 ]  + " " + timeWIB(datetime.now(), "%Y") + " " + timeWIB(datetime.now(), "%H:%M:%S") + "\nMaps : https://www.google.com/maps/search/" + str(coordinate);
                         mediaUrl = str(SERVERNAME) + filePath #"https://biocompositescc.com/wp-content/uploads/2019/04/icompology300x150.png" 
                         notify.send_media( "628561655028", mediaMessage, mediaUrl, "image")
