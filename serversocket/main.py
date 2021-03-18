@@ -24,6 +24,8 @@ import logging
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
+import requests
+
 # Set this variable to "threading", "eventlet" or "gevent" to test the
 # different async modes, or leave it set to None for the application to choose
 # the best option based on installed packages.
@@ -65,7 +67,9 @@ db = Repository()
 
 @app.route('/')
 def index():
-    #Startup Data
+    import requests
+
+
     return render_template('index.html', async_mode=socketio.async_mode, devices=devices, stackholder=stackholder)
 
 
@@ -77,6 +81,12 @@ def isset( data, key, typedata = "str" ):
         return str(data[key]) if data.get(key) else ""
     else:
         return int(data[key]) if data.get(key) else 0
+
+def pushToImgBB( visionBase64 ):
+    payload={'image': visionBase64}
+    response = requests.request("POST", "https://api.imgbb.com/1/upload?key=a4335073f815a159ee957016a7a2a65c", headers={}, data=payload, files=[])
+    jsonData = response.json()
+    return jsonData['data']['url']
 
 #---------------------- SOCKET
 
@@ -203,6 +213,11 @@ def background_temps(duration, data):
 
                 # Base64toImage -> UrlDecode -> Reconstruction
                 visionTemps = requests.utils.unquote(visionTemps)
+
+                # Upload to ImgBB
+                fileImgBB = pushToImgBB(visionTemps)
+                print(fileImgBB)
+
                 imageTemps = base64.b64decode(visionTemps)
 
                 # -> Make Image
@@ -216,9 +231,6 @@ def background_temps(duration, data):
                 # os.chmod(filePath, 0o777)
                 with open(filePath, 'wb') as f:
                     f.write(imageTemps)
-                # with open(filePath, 'wb') as f:
-                #     f.write(imageTemps)
-
                 # Checking Image is Right -> Vision Failed Status
                     
                 # -------------------------- Combining Part and Save Raw Image -------------------------- #
@@ -228,14 +240,17 @@ def background_temps(duration, data):
                     capacity = estimation.getCapacity()
                     fileResult = estimation.getFilename()
 
+                    with open(fileResult, "rb") as x:
+                        fileEstimation = base64.b64encode(x.read())
+                    
+                    fileEstimationImgBB = pushToImgBB(fileEstimation)
+                    print(fileEstimationImgBB)
+
                     # -------------------------- NOTIFICATION -------------------------- #
                     if Decimal(capacity) > 1:
                         listMonths = [ "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
                         notify = WhatsAppAPI("abfb0642e231eb292355a8f28e14e9cd")
-                        notify.send_text( "628561655028", "Masuk Pak Eko" )
-                        mediaMessage = "🔔 MOKSA Notification !!!\nKontainer " + devices[chip] + "\nKapasitas : "+ str(capacity) +"%" + "\nKoordinat : " + coordinate + "\nBaterai : " + str(battery) + "%" + "\nTanggal : " + timeWIB(datetime.now(), "%d") + " " +  listMonths[int(timeWIB(datetime.now(), "%m")) -1 ]  + " " + timeWIB(datetime.now(), "%Y") + " " + timeWIB(datetime.now(), "%H:%M:%S") + "\nMaps : https://www.google.com/maps/search/" + str(coordinate);
-                        mediaUrl = str(SERVERNAME) + filePath #"https://biocompositescc.com/wp-content/uploads/2019/04/icompology300x150.png" 
-                        notify.send_media( "628561655028", mediaMessage, mediaUrl, "image")
+                        notify.send_media( "628561655028", "🚚 MOKSA Notification !!!\nKontainer " + devices[chip] + "\nKapasitas : "+ str(capacity) +"%" + "\nKoordinat : " + coordinate + "\nBaterai : " + str(battery) + "%" + "\nTanggal : " + timeWIB(datetime.now(), "%d") + " " +  listMonths[int(timeWIB(datetime.now(), "%m")) -1 ]  + " " + timeWIB(datetime.now(), "%Y") + " " + timeWIB(datetime.now(), "%H:%M:%S") + "\nMaps : https://www.google.com/maps/search/" + str(coordinate), fileImgBB, "image")
 
                         socketio.emit('notification_status', "628561655028" )
                         ## SOCKET PUSH
@@ -251,8 +266,8 @@ def background_temps(duration, data):
                         "battery"               : battery,
                         "mode"                  : mode,
                         "vision"                : "OK" if vision else "ERROR",
-                        "raw"                   : SERVERNAME + filePath,
-                        "estimation"            : SERVERNAME + fileResult,
+                        "raw"                   : fileImgBB,
+                        "estimation"            : fileEstimationImgBB,
                         "capacity"              : capacity,
                         "date"                  : today,
                         "time"                  : now,
