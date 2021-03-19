@@ -18,11 +18,11 @@ from notification import WhatsAppAPI
 from engineio.payload import Payload
 from decimal import Decimal
 
-Payload.max_decode_packets = 50
+Payload.max_decode_packets = 100
 
 import logging
 log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)
+log.setLevel(logging.WARNING)
 
 import requests
 
@@ -55,7 +55,8 @@ app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 
 # -->  Socket IO
-socketio = SocketIO(app, async_mode=async_mode)
+socketio = SocketIO(app, cors_allowed_origins=[], logger=False, engineio_logger=False, async_mode=async_mode)
+
 thread = None
 thread_lock = Lock()
 
@@ -67,9 +68,6 @@ db = Repository()
 
 @app.route('/')
 def index():
-    import requests
-
-
     return render_template('index.html', async_mode=socketio.async_mode, devices=devices, stackholder=stackholder)
 
 
@@ -98,6 +96,7 @@ def pong_py():
 
 @socketio.event
 def startup_refresh():
+    socketio.emit('ping_js')
     socketio.emit('latest_estimation', parse_json(db.get_latest()) )
     socketio.emit('refresh_data', parse_json(db.get_all()) )
          

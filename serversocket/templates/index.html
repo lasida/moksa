@@ -102,7 +102,7 @@
                 window.setInterval(function() {
                     start_time = (new Date).getTime();
                     socket.emit('pong_py');
-                }, 1000);
+                }, 2000);
 
                 socket.on('ping_js', function() 
                 {
