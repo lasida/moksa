@@ -49,7 +49,7 @@
                         <td class="small-hide">{{item.coordinate}}</td>
                         <td>{{item.battery}}%</td>
                         <td class="small-hide">{{item.vision}}</td>
-                        <td>{{item.timestamp}}</td>
+                        <td><time class="timeago" datetime="{{item.timestamp}}">{{item.timestamp}}</time></td>
                     </tr>
                     {% endfor %}
                 </tbody>

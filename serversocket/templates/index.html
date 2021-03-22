@@ -93,6 +93,7 @@
                 });
 
                 socket.emit('startup_refresh');
+                $("time.timeago").timeago();
 
                 // Latency Count
                 var ping_pong_times = [];
@@ -101,8 +102,17 @@
                 start_time = (new Date).getTime();
                 window.setInterval(function() {
                     start_time = (new Date).getTime();
-                    socket.emit('pong_py');
+                    if (socket.connected){
+                        socket.emit('pong_py');
+                    }else{
+                        $("#inforest").text("Socket Not Connected...");
+                        setTimeout(function(){ 
+                            socket = io();
+                        }, 3000);
+                    }
                 }, 2000);
+
+      
 
                 socket.on('ping_js', function() 
                 {
@@ -157,7 +167,7 @@
                         setTimeout(function(){ 
                             // $(".leaflet-marker-icon").remove();
                             // $(".leaflet-popup").remove();
-                            map.setView([-6.171389, 106.640556], 13);
+                            map.setView([-6.171389, 106.640556], 12);
                         }, 10000);
                     }
                  });

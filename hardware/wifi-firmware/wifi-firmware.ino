@@ -208,8 +208,7 @@ void setup()
   WiFi.onEvent(WiFiGotIP, SYSTEM_EVENT_STA_GOT_IP);
   WiFi.onEvent(WiFiStationDisconnected, SYSTEM_EVENT_STA_DISCONNECTED);   
   indicator_clear();
-   
-  ESP32_DEVICE_STATUS("collect", "online");
+ 
   // --> Setup Camera
   setupCamera();
 
@@ -224,7 +223,7 @@ void setup()
   setupDateTime();
 
   Serial.println("ESP32 :: " + String(chipid) +" Setup Done !!!");
-
+  
   //Print the wakeup reason for ESP32
   //esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK,ESP_EXT1_WAKEUP_ANY_HIGH);
   print_wakeup_reason();
@@ -236,11 +235,15 @@ void loop(){
   times = millis();
   int tseconds = times / 1000;
   local_time_seconds = tseconds % 60;
+
+  local_time_seconds += 60;
   
   Serial.println("Runtime : " + String(local_time_seconds) );
   Serial.println("Uptime : " + String(uptime_seconds) );
 
   //------------------------------ Checking Time -----------------------------//
+  //  ESP32_DEVICE_STATUS("collect", "online");
+
   if( !status_camera ){
       indicator_error();
       ESP.restart();
@@ -260,16 +263,9 @@ void loop(){
 
 //------------------------------- Device Status -------------------------------//
 bool ESP32_DEVICE_STATUS( String statue, String mode_device ){
-  uptime_seconds += local_time_seconds;
-  Serial.println("POST :: Device Status");
-  DynamicJsonDocument doc(100);
-  doc["chip"] = String(chipid);
-  doc["status"] = statue; 
-  doc["batt"] = 100;
-  doc["mode"] = mode_device;
-  doc["runtime"] = String(uptime_seconds);
-  serializeJson(doc, jsonStatus);  
-  bool rstatus = ESP32_POST_HTTP( "http://como.ap-1.evennode.com/v1/device/status", jsonStatus );
+  memset(jsonStatus, 0, sizeof(jsonStatus));
+
+
 }
 
 //--------------------------------- Camera ---------------------------------//
@@ -322,6 +318,7 @@ void setupCamera(){
   }
 
   sensor_t * s = esp_camera_sensor_get();
+  s->set_hmirror(s, 1);
   s->set_vflip(s, 1); // 0 = disable , 1 = enable
 }
 
@@ -394,19 +391,20 @@ bool getCameraPicture(){
     serializeJson(doc, jsonVision);  
     Serial.println("... OK");
 
-    Serial.print("Length Image : "); Serial.println( base64Image.length());
+    //Serial.print("Length Image : "); Serial.println( base64Image.length());
+    delay(2000);
 
     if( errCount > 3 ){
       ESP.restart();
     }
     
     // Sending Payload
-    Serial.print("ESP32 :: Sending Payload...");
+    //Serial.print("ESP32 :: Sending Payload...");
     bool rstatus = ESP32_POST_HTTP( "http://como.ap-1.evennode.com/v1/device/data", jsonVision );
     if( rstatus ){
-      Serial.println("....OK");
+      Serial.println("OK");
     }else{
-      Serial.println("....Failed");
+      Serial.println("Failed");
       errCount++;
     }
     cIndex++;
@@ -511,7 +509,16 @@ void setupSleep( int timeSleep ){
   
   uptime_seconds += local_time_seconds;
 
-  ESP32_DEVICE_STATUS("collect", "sleep");
+  Serial.println("POST :: Device Status");
+  DynamicJsonDocument doc(100);
+  doc["chip"] = String(chipid);
+  doc["status"] = "sleep"; 
+  doc["batt"] = 100;
+  doc["mode"] = "collect";
+  doc["runtime"] = String(uptime_seconds);
+  serializeJson(doc, jsonStatus);  
+  bool rstatus = ESP32_POST_HTTP( "http://como.ap-1.evennode.com/v1/device/status", jsonStatus );
+  
   //disconnect WiFi as it's no longer needed
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);

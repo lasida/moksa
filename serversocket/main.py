@@ -18,7 +18,7 @@ from notification import WhatsAppAPI
 from engineio.payload import Payload
 from decimal import Decimal
 
-Payload.max_decode_packets = 100
+Payload.max_decode_packets = 150
 
 import logging
 log = logging.getLogger('werkzeug')
@@ -32,14 +32,11 @@ import requests
 async_mode = None
 
 # ---------------------- Define Constants ------------------------
-# SERVERNAME = 'http://127.0.0.1:3000/'
-SERVERNAME = 'http://como.ap-1.evennode.com/'
-
 # --> Registerd Device ( chipID : name )
 devices = {
     '951950972': "ESP-A",
     '805658940': "ESP-B",
-    # '000000000': "ESP-C"
+    '352674108': "ESP-C"
 }
 
 # -->  Registered User ( whatsapp : name )
@@ -55,21 +52,11 @@ app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 
 # -->  Socket IO
-socketio = SocketIO(app, cors_allowed_origins=[], logger=False, engineio_logger=False, async_mode=async_mode)
+
+socketio = SocketIO(app, logger=False, engineio_logger=False, async_mode=async_mode, cors_allowed_origins='*', async_handlers=True, pingTimeout=60)
 
 thread = None
 thread_lock = Lock()
-
-# --> Object Initiate Database
-db = Repository()
-
-# Routing Root and Rendering Index ( SyncMode, Regstered Device )
-
-
-@app.route('/')
-def index():
-    return render_template('index.html', async_mode=socketio.async_mode, devices=devices, stackholder=stackholder)
-
 
 def parse_json(data):
     return json.loads(json_util.dumps(data))
@@ -86,6 +73,17 @@ def pushToImgBB( visionBase64 ):
     jsonData = response.json()
     return jsonData['data']['url']
 
+
+# --> Object Initiate Database
+db = Repository()
+stream_db = parse_json(db.get_all())
+
+# Routing Root and Rendering Index ( SyncMode, Regstered Device )
+@app.route('/')
+def index():
+    return render_template('index.html', async_mode=socketio.async_mode, devices=devices, stream_db=stream_db, stackholder=stackholder)
+
+
 #---------------------- SOCKET
 
 #Send Ping
@@ -98,7 +96,7 @@ def pong_py():
 def startup_refresh():
     socketio.emit('ping_js')
     socketio.emit('latest_estimation', parse_json(db.get_latest()) )
-    socketio.emit('refresh_data', parse_json(db.get_all()) )
+
          
 # OnOnnect
 @socketio.event
@@ -108,7 +106,6 @@ def connect():
         if thread is None:
             socketio.sleep(1)
             thread = socketio.start_background_task(background_thread)
-            socketio.emit('latest_estimation', parse_json(db.get_latest()) )
 
 #SocketIO Server to Client
 def background_thread():
@@ -117,6 +114,7 @@ def background_thread():
         socketio.sleep(10)
         # socketio.emit('notification_status', "628561655028" )
         socketio.emit('refresh_data', parse_json(db.get_all()) )
+        # print("10s Refresh Data")
 
 
 #----------------------------------- REST API -------------------------------------#
@@ -277,7 +275,6 @@ def background_temps(duration, data):
                     jsonData  = json.dumps(devicesPayload)
                     db.push(jsonData)
                     # -------------------------- JSON RESULTS -------------------------- #
-
 
                     # -------------------------- SOCKET PUSH -------------------------- #
                     socketio.emit('latest_estimation', parse_json(db.get_latest()) )
